@@ -34,6 +34,8 @@ A filter is one or more conditions of the form `field operator value`.
 | `assignees` | text | username |
 | `created_by` | text | username |
 | `bucket_id` | number | Kanban bucket ID |
+| `epic` / `epic_id` | number | ID of the task's epic, `0` for tasks without an epic |
+| `is_epic` | bool | `true` for epics |
 | `id`, `index`, `repeat_after`, `hex_color`, `uid` | | |
 
 ## Dates

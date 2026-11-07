@@ -56,7 +56,8 @@ const formatArgHint = "Pass format=markdown to exchange rich-text fields as Mark
 
 const serverInstructions = `Rich-text fields (task and project descriptions, comments) are HTML by default. Pass format: "markdown" on read, list and update tools to exchange them as GFM Markdown.
 Read and list tools return every field by default; pass fields to get only the ones you need.
-Filter queries combine conditions with && and ||, not "and"/"or". Call ` + toolFilterSyntax + ` for the full filter syntax.`
+Filter queries combine conditions with && and ||, not "and"/"or". Call ` + toolFilterSyntax + ` for the full filter syntax.
+Epics are tasks with is_epic: true. Create one with tasks_create and is_epic: true; list a project's epics with tasks_list, epics: "only" and expand epic_progress. Put a task into an epic by setting epic_id (0 removes it); the epic must be in the same project. Filter a project's tasks by epic with "epic = <id>".`
 
 func buildToolSpec(oapi *huma.OpenAPI, op *huma.Operation) (*toolSpec, error) {
 	props := map[string]*jsonschema.Schema{}
