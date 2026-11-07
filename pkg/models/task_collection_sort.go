@@ -48,10 +48,14 @@ const (
 	taskPropertyBucketID      string = "bucket_id"
 	taskPropertyIndex         string = "index"
 	taskPropertyProjectViewID string = "project_view_id"
-	taskPropertyAssignees     string = "assignees"
-	taskPropertyLabels        string = "labels"
-	taskPropertyReminders     string = "reminders"
-	taskPropertyCreatedBy     string = "created_by"
+	taskPropertyIsEpic        string = "is_epic"
+	taskPropertyEpicID        string = "epic_id"
+	// Filter alias for epic_id.
+	taskPropertyEpic      string = "epic"
+	taskPropertyAssignees string = "assignees"
+	taskPropertyLabels    string = "labels"
+	taskPropertyReminders string = "reminders"
+	taskPropertyCreatedBy string = "created_by"
 	// Not a task column: sorts by search relevance on ParadeDB. Valid for
 	// sorting only, silently skipped when the database or query cannot score.
 	taskPropertyRelevance string = "relevance"
@@ -117,7 +121,9 @@ func validateTaskFieldForSorting(fieldName string) error {
 		taskPropertyUpdated,
 		taskPropertyPosition,
 		taskPropertyBucketID,
-		taskPropertyIndex:
+		taskPropertyIndex,
+		taskPropertyIsEpic,
+		taskPropertyEpicID:
 		return nil
 	}
 	return ErrInvalidTaskField{TaskField: fieldName}

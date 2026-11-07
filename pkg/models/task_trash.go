@@ -146,6 +146,10 @@ func (t *Task) Restore(s *xorm.Session, a web.Auth) error {
 	t.DeletedAt = time.Time{}
 	t.DeletedByID = 0
 
+	if err := releaseStaleEpic(s, t); err != nil {
+		return err
+	}
+
 	// CalDAV clients saw the task as deleted and only pick it up again through this
 	if err := updateTaskLastUpdated(s, t); err != nil {
 		return err
