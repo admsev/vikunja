@@ -66,7 +66,22 @@
 					{{ getViewTitle(view) }}
 				</BaseButton>
 			</SwitchView>
-			<slot name="header" />
+			<div class="switch-view-actions">
+				<BaseButton
+					v-if="supportsEpics"
+					v-tooltip="$t('epic.panel.toggleHint')"
+					v-cy="'epics-panel-toggle'"
+					class="epics-toggle"
+					:style="getEpicChipStyles()"
+					:class="{'is-active': showEpicsPanel}"
+					:aria-pressed="showEpicsPanel"
+					@click="showEpicsPanel = !showEpicsPanel"
+				>
+					<Icon icon="bolt" />
+					{{ $t('epic.panel.title') }}
+				</BaseButton>
+				<slot name="header" />
+			</div>
 		</div>
 		<CustomTransition name="fade">
 			<Message
@@ -78,13 +93,28 @@
 			</Message>
 		</CustomTransition>
 
-		<slot v-if="!isLoadingProject" />
+		<div
+			class="project-content"
+			:class="{'has-epics-panel': showEpicsPanel}"
+		>
+			<EpicsPanel
+				v-if="showEpicsPanel"
+				class="project-content__epics d-print-none"
+				:project-id="projectId"
+				:can-write="canWrite"
+				@close="showEpicsPanel = false"
+			/>
+			<div class="project-content__main">
+				<slot v-if="!isLoadingProject" />
+			</div>
+		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
 import {computed, ref, watch, nextTick, onMounted} from 'vue'
-import {unrefElement, useResizeObserver} from '@vueuse/core'
+import {unrefElement, useLocalStorage, useResizeObserver} from '@vueuse/core'
+import {useRoute} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 
 import BaseButton from '@/components/base/BaseButton.vue'
@@ -94,6 +124,10 @@ import Icon from '@/components/misc/Icon'
 import Message from '@/components/misc/Message.vue'
 import CustomTransition from '@/components/misc/CustomTransition.vue'
 import SwitchView from '@/components/misc/SwitchView.vue'
+import EpicsPanel from '@/components/epics/EpicsPanel.vue'
+import {EPIC_STORAGE_KEYS} from '@/constants/epics'
+import {getEpicChipStyles} from '@/helpers/epicColor'
+import {PERMISSIONS as Permissions} from '@/constants/permissions'
 
 import {getProjectTitle} from '@/helpers/getProjectTitle'
 import {useTitle} from '@/composables/useTitle'
@@ -144,6 +178,15 @@ useTitle(() => currentProject.value?.id ? getProjectTitle(currentProject.value) 
 
 const views = computed(() => currentProject.value.views)
 
+// Epics belong to a real project; pseudo projects (favorites, saved filters) span several.
+const supportsEpics = computed(() => props.projectId > 0)
+const canWrite = computed(() => (currentProject.value.max_permission ?? 0) > Permissions.READ)
+const epicsPanelOpen = useLocalStorage<Record<number, boolean>>(EPIC_STORAGE_KEYS.panelOpen, {})
+const showEpicsPanel = computed({
+	get: () => supportsEpics.value && (epicsPanelOpen.value[props.projectId] ?? false),
+	set: open => { epicsPanelOpen.value = {...epicsPanelOpen.value, [props.projectId]: open} },
+})
+
 const activeViewTitle = computed(() => {
 	const activeView = views.value.find((view: ProjectView) => view.id === props.viewId)
 	return activeView ? getViewTitle(activeView) : ''
@@ -169,13 +212,17 @@ function getViewTitle(view: ProjectView) {
 	return view.title ?? ''
 }
 
+const route = useRoute()
+
 function getViewRoute(view: ProjectView) {
 	const viewId = view.id ?? 0
 	const storedQuery = viewFiltersStore.getViewQuery(viewId)
+	// The epic narrowing applies to the project, so it follows you between its views.
+	const epic = route.query.epic
 	return {
 		name: 'project.view',
 		params: {projectId: props.projectId, viewId},
-		query: storedQuery,
+		query: epic ? {...storedQuery, epic} : storedQuery,
 	}
 }
 </script>
@@ -219,6 +266,63 @@ function getViewRoute(view: ProjectView) {
 
 .dropdown-icon {
 	font-size: .6rem;
+}
+
+.switch-view-actions {
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+	margin-inline-start: auto;
+
+	@media screen and (max-width: $tablet) {
+		margin-inline-start: 0;
+	}
+}
+
+.epics-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: .35rem;
+	padding: .5rem .75rem;
+	font-size: .75rem;
+	border-radius: $radius;
+	background: var(--white);
+	box-shadow: var(--shadow-sm);
+	white-space: nowrap;
+
+	svg {
+		color: var(--epic-color);
+	}
+
+	&:hover,
+	&.is-active {
+		color: var(--switch-view-color);
+		background: var(--switch-view-active-background);
+	}
+
+	&.is-active {
+		font-weight: bold;
+	}
+}
+
+.project-content.has-epics-panel {
+	display: grid;
+	grid-template-columns: 16rem minmax(0, 1fr);
+	gap: 1rem;
+	align-items: start;
+
+	@media screen and (max-width: $tablet) {
+		grid-template-columns: minmax(0, 1fr);
+
+		.project-content__epics {
+			position: static;
+			max-block-size: none;
+		}
+	}
+}
+
+.project-content__main {
+	min-inline-size: 0;
 }
 
 // FIXME: this should be in notification and set via a prop

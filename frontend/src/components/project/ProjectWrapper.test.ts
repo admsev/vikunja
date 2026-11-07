@@ -22,6 +22,11 @@ vi.mock('vue-i18n', async importOriginal => ({
 
 vi.mock('@/composables/useTitle', () => ({useTitle: () => {}}))
 
+vi.mock('vue-router', async importOriginal => ({
+	...await importOriginal<typeof import('vue-router')>(),
+	useRoute: () => ({query: {}}),
+}))
+
 import ProjectWrapper from './ProjectWrapper.vue'
 
 function mountWrapper(projectId: number) {
