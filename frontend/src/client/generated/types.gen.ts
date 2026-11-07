@@ -632,6 +632,40 @@ export type EmailConfirm = {
     token?: string;
 };
 
+export type EpicProgress = {
+    /**
+     * The number of done tasks in this epic.
+     */
+    done?: number;
+    /**
+     * The number of tasks in this epic.
+     */
+    total?: number;
+};
+
+export type EpicSummary = {
+    /**
+     * Whether the epic is done.
+     */
+    done?: boolean;
+    /**
+     * The epic color as a hex string without the leading '#'.
+     */
+    hex_color?: string;
+    /**
+     * The id of the epic.
+     */
+    id?: number;
+    /**
+     * The textual identifier of the epic, e.g. "PROJ-12".
+     */
+    identifier?: string;
+    /**
+     * The title of the epic.
+     */
+    title?: string;
+};
+
 export type ErrorDetail = {
     /**
      * Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
@@ -2328,6 +2362,18 @@ export type Task = {
     due_date?: string;
     end_date?: string;
     /**
+     * A summary of the epic this task belongs to. Only present when requested via the epic expand option and the task has an epic.
+     */
+    readonly epic?: EpicSummary;
+    /**
+     * The id of the epic this task belongs to, or 0 for none. Must be an epic (is_epic) in the same project; epics cannot belong to another epic.
+     */
+    epic_id?: number;
+    /**
+     * How many of the epic's tasks are done. Only present on epics when requested via the epic_progress expand option.
+     */
+    readonly epic_progress?: EpicProgress;
+    /**
      * The task color as a hex string without the leading '#'.
      */
     hex_color?: string;
@@ -2343,6 +2389,10 @@ export type Task = {
      * The per-project task index, assigned by the server.
      */
     readonly index?: number;
+    /**
+     * Whether this task is an epic. Other tasks of the same project can be assigned to an epic via epic_id. Turning an epic back into a task detaches its tasks.
+     */
+    is_epic?: boolean;
     /**
      * Whether the requesting user has favorited this task. Per-user, so it differs between callers.
      */
@@ -2669,6 +2719,18 @@ export type TaskReadOneBody = {
     due_date?: string;
     end_date?: string;
     /**
+     * A summary of the epic this task belongs to. Only present when requested via the epic expand option and the task has an epic.
+     */
+    readonly epic?: EpicSummary;
+    /**
+     * The id of the epic this task belongs to, or 0 for none. Must be an epic (is_epic) in the same project; epics cannot belong to another epic.
+     */
+    epic_id?: number;
+    /**
+     * How many of the epic's tasks are done. Only present on epics when requested via the epic_progress expand option.
+     */
+    readonly epic_progress?: EpicProgress;
+    /**
      * The task color as a hex string without the leading '#'.
      */
     hex_color?: string;
@@ -2684,6 +2746,10 @@ export type TaskReadOneBody = {
      * The per-project task index, assigned by the server.
      */
     readonly index?: number;
+    /**
+     * Whether this task is an epic. Other tasks of the same project can be assigned to an epic via epic_id. Turning an epic back into a task detaches its tasks.
+     */
+    is_epic?: boolean;
     /**
      * Whether the requesting user has favorited this task. Per-user, so it differs between callers.
      */
@@ -3389,6 +3455,18 @@ export type TrashedTask = {
     due_date?: string;
     end_date?: string;
     /**
+     * A summary of the epic this task belongs to. Only present when requested via the epic expand option and the task has an epic.
+     */
+    readonly epic?: EpicSummary;
+    /**
+     * The id of the epic this task belongs to, or 0 for none. Must be an epic (is_epic) in the same project; epics cannot belong to another epic.
+     */
+    epic_id?: number;
+    /**
+     * How many of the epic's tasks are done. Only present on epics when requested via the epic_progress expand option.
+     */
+    readonly epic_progress?: EpicProgress;
+    /**
      * The task color as a hex string without the leading '#'.
      */
     hex_color?: string;
@@ -3404,6 +3482,10 @@ export type TrashedTask = {
      * The per-project task index, assigned by the server.
      */
     readonly index?: number;
+    /**
+     * Whether this task is an epic. Other tasks of the same project can be assigned to an epic via epic_id. Turning an epic back into a task detaches its tasks.
+     */
+    is_epic?: boolean;
     /**
      * Whether the requesting user has favorited this task. Per-user, so it differs between callers.
      */
@@ -5067,9 +5149,17 @@ export type TaskWritable = {
     due_date?: string;
     end_date?: string;
     /**
+     * The id of the epic this task belongs to, or 0 for none. Must be an epic (is_epic) in the same project; epics cannot belong to another epic.
+     */
+    epic_id?: number;
+    /**
      * The task color as a hex string without the leading '#'.
      */
     hex_color?: string;
+    /**
+     * Whether this task is an epic. Other tasks of the same project can be assigned to an epic via epic_id. Turning an epic back into a task detaches its tasks.
+     */
+    is_epic?: boolean;
     /**
      * Whether the requesting user has favorited this task. Per-user, so it differs between callers.
      */
@@ -5168,9 +5258,17 @@ export type TaskReadOneBodyWritable = {
     due_date?: string;
     end_date?: string;
     /**
+     * The id of the epic this task belongs to, or 0 for none. Must be an epic (is_epic) in the same project; epics cannot belong to another epic.
+     */
+    epic_id?: number;
+    /**
      * The task color as a hex string without the leading '#'.
      */
     hex_color?: string;
+    /**
+     * Whether this task is an epic. Other tasks of the same project can be assigned to an epic via epic_id. Turning an epic back into a task detaches its tasks.
+     */
+    is_epic?: boolean;
     /**
      * Whether the requesting user has favorited this task. Per-user, so it differs between callers.
      */
@@ -5425,9 +5523,17 @@ export type TrashedTaskWritable = {
     due_date?: string;
     end_date?: string;
     /**
+     * The id of the epic this task belongs to, or 0 for none. Must be an epic (is_epic) in the same project; epics cannot belong to another epic.
+     */
+    epic_id?: number;
+    /**
      * The task color as a hex string without the leading '#'.
      */
     hex_color?: string;
+    /**
+     * Whether this task is an epic. Other tasks of the same project can be assigned to an epic via epic_id. Turning an epic back into a task detaches its tasks.
+     */
+    is_epic?: boolean;
     /**
      * Whether the requesting user has favorited this task. Per-user, so it differs between callers.
      */
@@ -8466,11 +8572,15 @@ export type ProjectTasksListData = {
         /**
          * Embed extra, more expensive data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread' | 'epic' | 'epic_progress'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
         format?: 'html' | 'markdown';
+        /**
+         * Whether epics are part of the result: include (default) returns tasks and epics, exclude only regular tasks, only just epics. Filter by a task's epic with "epic = <id>" (0 for tasks without an epic).
+         */
+        epics?: 'include' | 'exclude' | 'only';
     };
     url: '/projects/{project}/tasks';
 };
@@ -8597,7 +8707,7 @@ export type TasksReadByIndexData = {
         /**
          * Embed extra data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread' | 'epic' | 'epic_progress'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
@@ -9216,11 +9326,15 @@ export type ProjectViewBucketsTasksListData = {
         /**
          * Embed extra, more expensive data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread' | 'epic' | 'epic_progress'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
         format?: 'html' | 'markdown';
+        /**
+         * Whether epics are part of the result: include (default) returns tasks and epics, exclude only regular tasks, only just epics. Filter by a task's epic with "epic = <id>" (0 for tasks without an epic).
+         */
+        epics?: 'include' | 'exclude' | 'only';
     };
     url: '/projects/{project}/views/{view}/buckets/tasks';
 };
@@ -9378,11 +9492,15 @@ export type ProjectViewTasksListData = {
         /**
          * Embed extra, more expensive data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread' | 'epic' | 'epic_progress'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
         format?: 'html' | 'markdown';
+        /**
+         * Whether epics are part of the result: include (default) returns tasks and epics, exclude only regular tasks, only just epics. Filter by a task's epic with "epic = <id>" (0 for tasks without an epic).
+         */
+        epics?: 'include' | 'exclude' | 'only';
     };
     url: '/projects/{project}/views/{view}/tasks';
 };
@@ -9719,11 +9837,15 @@ export type TasksListData = {
         /**
          * Embed extra, more expensive data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread' | 'epic' | 'epic_progress'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
         format?: 'html' | 'markdown';
+        /**
+         * Whether epics are part of the result: include (default) returns tasks and epics, exclude only regular tasks, only just epics. Filter by a task's epic with "epic = <id>" (0 for tasks without an epic).
+         */
+        epics?: 'include' | 'exclude' | 'only';
     };
     url: '/tasks';
 };
@@ -9966,7 +10088,7 @@ export type TasksReadData = {
         /**
          * Embed extra data per task. Repeatable.
          */
-        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread'> | null;
+        expand?: Array<'subtasks' | 'buckets' | 'reactions' | 'comments' | 'comment_count' | 'time_entries_count' | 'is_unread' | 'epic' | 'epic_progress'> | null;
         /**
          * How rich-text fields are exchanged. See the API description.
          */
