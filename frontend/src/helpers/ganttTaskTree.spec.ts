@@ -200,4 +200,35 @@ describe('buildGanttTaskTree', () => {
 		expect(result[0].derivedStartDate?.toISOString()).toContain('2026-03-05')
 		expect(result[0].derivedEndDate?.toISOString()).toContain('2026-03-20')
 	})
+
+	it('nests the tasks of an epic below it and derives dates for a dateless epic', () => {
+		const epic = makeTask(1, {is_epic: true, start_date: undefined, end_date: undefined})
+		const first = makeTask(2, {epic_id: 1, start_date: new Date('2026-03-02').toISOString(), end_date: new Date('2026-03-05').toISOString()})
+		const second = makeTask(3, {epic_id: 1, start_date: new Date('2026-03-04').toISOString(), end_date: new Date('2026-03-12').toISOString()})
+		const other = makeTask(4)
+
+		const result = buildGanttTaskTree(new Map<number, TaskResponse>([
+			[2, first],
+			[4, other],
+			[1, epic],
+			[3, second],
+		]))
+
+		expect(result.map(node => [node.task.id, node.indentLevel])).toEqual([[4, 0], [1, 0], [2, 1], [3, 1]])
+		const epicNode = result.find(node => node.task.id === 1)!
+		expect(epicNode.isParent).toBe(true)
+		expect(epicNode.hasDerivedDates).toBe(true)
+		expect(epicNode.derivedStartDate?.toISOString()).toBe(new Date('2026-03-02').toISOString())
+		expect(epicNode.derivedEndDate?.toISOString()).toBe(new Date('2026-03-12').toISOString())
+	})
+
+	it('keeps a subtask below its parent even when both share an epic', () => {
+		const epic = makeTask(1, {is_epic: true})
+		const parent = makeTask(2, {epic_id: 1, related_tasks: {subtask: [makeTask(3)]}})
+		const child = makeTask(3, {epic_id: 1, related_tasks: {parenttask: [makeTask(2)]}})
+
+		const result = buildGanttTaskTree(new Map<number, TaskResponse>([[1, epic], [2, parent], [3, child]]))
+
+		expect(result.map(node => [node.task.id, node.indentLevel])).toEqual([[1, 0], [2, 1], [3, 2]])
+	})
 })

@@ -40,6 +40,15 @@ export function buildGanttTaskTree(tasks: Map<number, TaskResponse>): GanttTaskT
 		}
 	}
 
+	// Tasks of an epic that is part of the view are shown below it.
+	for (const [taskId, task] of tasks) {
+		const epicId = task.epic_id ?? 0
+		if (epicId === 0 || epicId === taskId || !tasks.has(epicId) || hasParentInView.has(taskId)) continue
+		const siblings = childrenMap.get(epicId) ?? []
+		if (!siblings.includes(taskId)) childrenMap.set(epicId, [...siblings, taskId])
+		hasParentInView.add(taskId)
+	}
+
 	// Step 2: Find root tasks (no parent in the current view)
 	const rootIds: number[] = []
 	for (const [taskId] of tasks) {

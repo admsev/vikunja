@@ -3,9 +3,11 @@ import type {Task} from '@/client/generated'
 import type {Filters} from '@/composables/useRouteFilters'
 import {useQuery} from '@tanstack/vue-query'
 import {allTasksQuery} from '@/client/queries/tasks'
-import type {TaskFilterParams} from '@/client/queries/tasks'
+import type {TaskFilterParams, TaskResponse} from '@/client/queries/tasks'
 import {useCreateTaskMutation, useUpdateTaskMutation} from '@/client/queries/taskMutations'
 import {useAuthStore} from '@/stores/auth'
+import {useEpicFilter, withEpicFilter} from '@/composables/useEpicFilter'
+import {useProjectEpics} from '@/composables/useProjectEpics'
 
 export function useGanttTaskList<F extends Filters>(
 	filters: Ref<F>,
@@ -13,12 +15,30 @@ export function useGanttTaskList<F extends Filters>(
 	viewId: Ref<number>,
 ) {
 	const auth = useAuthStore()
-	const query = useQuery(computed(() => allTasksQuery({
-		project: filters.value.projectId,
-		view: viewId.value,
-		params: {...filterToApiParams(filters.value), filter_timezone: auth.settings.timezone},
-	})))
-	const tasks = computed(() => new Map((query.data.value ?? []).map(task => [task.id, task])))
+	const {epicFilter} = useEpicFilter()
+	const query = useQuery(computed(() => {
+		const params = filterToApiParams(filters.value)
+		return allTasksQuery({
+			project: filters.value.projectId,
+			view: viewId.value,
+			params: {
+				...params,
+				filter: withEpicFilter(params.filter ?? '', epicFilter.value, true),
+				filter_timezone: auth.settings.timezone,
+			},
+		})
+	}))
+	// Epics often have no dates of their own; pull in the ones the shown tasks belong to so they
+	// become summary rows spanning their tasks.
+	const {epicsById} = useProjectEpics(() => filters.value.projectId)
+	const tasks = computed(() => {
+		const map = new Map<number, TaskResponse>((query.data.value ?? []).map(task => [task.id, task]))
+		for (const task of [...map.values()]) {
+			const epic = task.epic_id ? epicsById.value.get(task.epic_id) : undefined
+			if (epic && !map.has(epic.id)) map.set(epic.id, epic)
+		}
+		return map
+	})
 	const create = useCreateTaskMutation()
 	const update = useUpdateTaskMutation(true)
 	return {
