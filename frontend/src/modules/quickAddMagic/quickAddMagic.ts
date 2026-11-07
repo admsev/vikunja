@@ -19,6 +19,7 @@ export const parseTaskText = (text: string, prefixesMode: PrefixMode = PrefixMod
 		project: null,
 		priority: null,
 		assignees: [],
+		epic: null,
 		repeats: null,
 	}
 
@@ -47,6 +48,7 @@ export const parseTaskText = (text: string, prefixesMode: PrefixMode = PrefixMod
 	result.text = result.priority !== null ? cleanupItemText(result.text, [String(result.priority)], prefixes.priority) : result.text
 
 	result.assignees = getItemsFromPrefix(result.text, prefixes.assignee)
+	result.epic = getItemsFromPrefix(result.text, prefixes.epic)[0] ?? null
 
 	const {textWithoutMatched, repeats} = getRepeats(result.text)
 	result.text = textWithoutMatched

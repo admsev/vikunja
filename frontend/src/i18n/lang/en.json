@@ -719,6 +719,7 @@
           "done": "Whether the task is completed or not",
           "priority": "The priority level of the task (1-5)",
           "percentDone": "The percentage of completion for the task (0-100)",
+          "epic": "The id of the task's epic, or 0 for tasks without an epic",
           "dueDate": "The due date of the task",
           "startDate": "The start date of the task",
           "endDate": "The end date of the task",
@@ -1212,7 +1213,8 @@
         "color": "Set Color",
         "delete": "Delete",
         "favorite": "Add to Favorites",
-        "unfavorite": "Remove from Favorites"
+        "unfavorite": "Remove from Favorites",
+        "epic": "Set epic"
       }
     },
     "attributes": {
@@ -1237,7 +1239,8 @@
       "startDate": "Start Date",
       "title": "Title",
       "updated": "Updated",
-      "doneAt": "Done At"
+      "doneAt": "Done At",
+      "epic": "Epic"
     },
     "subscription": {
       "subscribedTaskThroughProject": "You are subscribed to this task through its project. Unsubscribing here only stops notifications for this task.",
@@ -1401,6 +1404,8 @@
       "project2": "This will return an error if the project does not exist.",
       "project3": "To use spaces, simply add a \" or ' around the project name.",
       "project4": "For example: {prefix}\"Project with spaces\".",
+      "epic1": "To put the task into an epic of its project, enter the epic's name prefixed with {prefix}. Names that match no epic stay part of the title.",
+      "epic2": "For example: {prefix}\"Epic with spaces\".",
       "dateAndTime": "Date and time",
       "date": "Any date will be used as the due date of the new task. You can use dates in any of these formats:",
       "dateWeekday": "any weekday, will use the next date with that day",
@@ -1684,6 +1689,8 @@
     "4035": "The uploaded file exceeds the maximum configured file size.",
     "4040": "This task is in the trash.",
     "4041": "This task hierarchy is too large to add more subtasks or parent tasks.",
+    "4043": "This task cannot be assigned to that epic.",
+    "4044": "Epics are not shown on boards and cannot be put into a bucket.",
     "6001": "The team name cannot be empty.",
     "6002": "The team does not exist.",
     "6004": "The team already has access to that project.",
@@ -1926,5 +1933,47 @@
     "projectInTrash": "This project is in the trash. It was deleted {since}.",
     "projectInTrashBy": "This project is in the trash. {user} deleted it {since}.",
     "projectInTrashByYou": "This project is in the trash. You deleted it {since}."
+  },
+  "epic": {
+    "panel": {
+      "title": "Epics",
+      "toggleHint": "Show or hide the epics panel",
+      "all": "All tasks",
+      "none": "Tasks without epic",
+      "empty": "No epics yet. Group related tasks into an epic to track their progress.",
+      "showDone": "Show completed epics",
+      "dropHint": "Drop a task on an epic to move it there."
+    },
+    "create": "Create epic",
+    "createPlaceholder": "What is this epic about?",
+    "created": "The epic \"{title}\" was created.",
+    "progress": "{done} of {total} done",
+    "taskAssigned": "The task was moved to the epic \"{epic}\".",
+    "taskRemoved": "The task was removed from its epic.",
+    "select": {
+      "placeholder": "Search for an epic…"
+    },
+    "tasks": {
+      "title": "Tasks in this epic",
+      "empty": "This epic has no tasks yet.",
+      "addExisting": "Add existing tasks",
+      "addPlaceholder": "Search for tasks to add…",
+      "createPlaceholder": "Add a task to this epic…"
+    },
+    "convert": {
+      "toEpic": "Convert to epic",
+      "toTask": "Convert to task",
+      "confirmHeader": "Convert this epic to a task?",
+      "confirm": "This epic has {count} task. Converting it to a regular task removes it from the epic. | This epic has {count} tasks. Converting it to a regular task removes them from the epic.",
+      "doneToEpic": "The task is now an epic.",
+      "doneToTask": "The epic is now a regular task."
+    },
+    "group": {
+      "byEpic": "Group by epic",
+      "noEpic": "No epic",
+      "swimlanes": "Swimlanes",
+      "loadMore": "Load more"
+    },
+    "removeTask": "Remove from epic"
   }
 }

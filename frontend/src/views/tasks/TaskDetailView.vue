@@ -81,6 +81,30 @@
 					:task="task"
 					:can-write="canWrite"
 				/>
+				<template v-if="task.is_epic">
+					<span class="has-text-grey-light"> &gt; </span>
+					<span
+						v-cy="'epic-badge'"
+						class="epic-badge"
+						:style="getEpicChipStyles(task.hex_color)"
+					>
+						<Icon icon="bolt" />
+						{{ $t('task.attributes.epic') }}
+					</span>
+				</template>
+				<template v-else-if="task.epic_id">
+					<span class="has-text-grey-light"> &gt; </span>
+					<RouterLink
+						:to="{name: 'task.detail', params: {id: task.epic_id}}"
+						class="epic-breadcrumb"
+					>
+						<EpicChip
+							:epic-id="task.epic_id"
+							:project-id="task.project_id"
+							:filter-on-click="false"
+						/>
+					</RouterLink>
+				</template>
 			</nav>
 
 			<ChecklistSummary :task="task" />
@@ -361,6 +385,27 @@
 						/>
 					</div>
 
+					<!-- Epic -->
+					<div
+						v-if="activeFields.epic && !task.is_epic"
+						class="details epic-field"
+					>
+						<div class="detail-title">
+							<span class="icon is-grey">
+								<Icon icon="bolt" />
+							</span>
+							{{ $t('task.attributes.epic') }}
+						</div>
+						<EpicSelect
+							:ref="e => setFieldRef('epic', e)"
+							:model-value="task.epic_id ?? 0"
+							:project-id="task.project_id"
+							:disabled="!canWrite"
+							:can-create="canWrite"
+							@change="changeEpic"
+						/>
+					</div>
+
 					<!-- Description -->
 					<div class="details content description">
 						<Description
@@ -398,6 +443,13 @@
 					>
 						<TaskTimeTracking :task-id="task.id" />
 					</div>
+
+					<!-- Tasks of this epic -->
+					<EpicTasks
+						v-if="task.is_epic && task.id"
+						:epic="{id: task.id, title: task.title ?? '', project_id: task.project_id ?? 0, hex_color: task.hex_color}"
+						:can-write="canWrite"
+					/>
 
 					<!-- Related Tasks -->
 					<div
@@ -523,6 +575,15 @@
 						>
 							{{ $t('task.detail.actions.color') }}
 						</XButton>
+						<XButton
+							v-if="!task.is_epic"
+							v-cy="'task-action-epic'"
+							variant="secondary"
+							icon="bolt"
+							@click="setFieldActive('epic')"
+						>
+							{{ $t('task.detail.actions.epic') }}
+						</XButton>
 						
 						<span class="action-heading">{{ $t('task.detail.management') }}</span>
 
@@ -558,6 +619,14 @@
 							@click="setFieldActive('moveProject')"
 						>
 							{{ $t('task.detail.actions.moveProject') }}
+						</XButton>
+						<XButton
+							v-cy="'task-action-convert-epic'"
+							variant="secondary"
+							icon="bolt"
+							@click="requestToggleIsEpic"
+						>
+							{{ task.is_epic ? $t('epic.convert.toTask') : $t('epic.convert.toEpic') }}
 						</XButton>
 						<XButton
 							variant="secondary"
@@ -647,6 +716,22 @@
 		>
 			<Icon icon="chevron-down" />
 		</BaseButton>
+
+		<Modal
+			:enabled="confirmingConversion"
+			@close="confirmingConversion = false"
+			@submit="toggleIsEpic()"
+		>
+			<template #header>
+				<span>{{ $t('epic.convert.confirmHeader') }}</span>
+			</template>
+
+			<template #text>
+				<p class="tw:text-balance">
+					{{ $t('epic.convert.confirm', {count: convertReleasesCount}, convertReleasesCount) }}
+				</p>
+			</template>
+		</Modal>
 	</div>
 </template>
 
@@ -677,6 +762,11 @@ import Attachments from '@/components/tasks/partials/Attachments.vue'
 import TaskTimeTracking from '@/components/time-tracking/TaskTimeTracking.vue'
 import ChecklistSummary from '@/components/tasks/partials/ChecklistSummary.vue'
 import ColorPicker from '@/components/input/ColorPicker.vue'
+import EpicChip from '@/components/epics/EpicChip.vue'
+import EpicTasks from '@/components/epics/EpicTasks.vue'
+import EpicSelect from '@/components/epics/EpicSelect.vue'
+import {useEpicTasks} from '@/composables/useEpicTasks'
+import {getEpicChipStyles} from '@/helpers/epicColor'
 import Comments from '@/components/tasks/partials/Comments.vue'
 import CreatedUpdated from '@/components/tasks/partials/CreatedUpdated.vue'
 import Datepicker from '@/components/input/Datepicker.vue'
@@ -713,6 +803,9 @@ import {
 	useFavoriteTaskMutation,
 	useDuplicateTaskMutation,
 	useMarkTaskReadMutation,
+	useAssignTaskToEpicMutation,
+	useConvertTaskEpicMutation,
+	type EpicRef,
 } from '@/client/queries/taskMutations'
 import {useProjects} from '@/composables/useProjects'
 import {useAuthStore} from '@/stores/auth'
@@ -1000,6 +1093,7 @@ type FieldType =
 	| 'assignees'
 	| 'attachments'
 	| 'color'
+	| 'epic'
 	| 'dueDate'
 	| 'endDate'
 	| 'labels'
@@ -1016,6 +1110,7 @@ const activeFields: { [type in FieldType]: boolean } = reactive({
 	assignees: false,
 	attachments: false,
 	color: false,
+	epic: false,
 	dueDate: false,
 	endDate: false,
 	labels: false,
@@ -1035,6 +1130,7 @@ function setActiveFields() {
 	activeFields.attachments = (task.value.attachments?.length ?? 0) > 0
 	activeFields.timeTracking = (task.value.time_entries_count ?? 0) > 0
 	activeFields.dueDate = Boolean(parseDateOrNull(task.value.due_date))
+	activeFields.epic = (task.value.epic_id ?? 0) > 0
 	activeFields.endDate = Boolean(parseDateOrNull(task.value.end_date))
 	activeFields.labels = (task.value.labels?.length ?? 0) > 0
 	activeFields.percentDone = (task.value.percent_done ?? 0) > 0
@@ -1078,6 +1174,7 @@ const activeFieldElements: { [id in FieldType]: HTMLElement | null } = reactive(
 	assignees: null,
 	attachments: null,
 	color: null,
+	epic: null,
 	dueDate: null,
 	endDate: null,
 	labels: null,
@@ -1253,6 +1350,33 @@ function goBack() {
 		return
 	}
 	router.push(projectRoute.value)
+}
+
+const assignToEpic = useAssignTaskToEpicMutation()
+
+function changeEpic(epic: EpicRef | null) {
+	assignToEpic.mutate({taskId: task.value.id!, epic})
+}
+
+const convertTaskEpic = useConvertTaskEpicMutation()
+// The tasks an epic would release when converted back, read live so the confirmation is never skipped.
+const {tasks: epicTasks} = useEpicTasks(() => task.value.is_epic && task.value.id
+	? {id: task.value.id, project_id: task.value.project_id ?? 0}
+	: null)
+const confirmingConversion = ref(false)
+const convertReleasesCount = computed(() => epicTasks.value.length)
+
+function requestToggleIsEpic() {
+	if (task.value.is_epic && convertReleasesCount.value > 0) {
+		confirmingConversion.value = true
+		return
+	}
+	toggleIsEpic()
+}
+
+function toggleIsEpic() {
+	confirmingConversion.value = false
+	convertTaskEpic.mutate({taskId: task.value.id!, isEpic: !task.value.is_epic})
 }
 
 async function changeProject(project: ProjectResponse | null) {
@@ -1563,6 +1687,24 @@ h2 .button {
 	@media print {
 		inline-size: 100% !important;
 	}
+}
+
+.epic-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: .3rem;
+	padding: .05rem .5rem;
+	border-radius: 999px;
+	font-size: .8rem;
+	font-weight: 700;
+	color: var(--epic-text-color);
+	background: var(--epic-color);
+	vertical-align: middle;
+}
+
+.epic-breadcrumb {
+	display: inline-flex;
+	vertical-align: middle;
 }
 
 .action-heading {

@@ -64,6 +64,12 @@
 						{{ $t('task.quickAddMagic.project4', {prefix: prefixes.project}) }}
 					</p>
 
+					<h3>{{ $t('task.attributes.epic') }}</h3>
+					<p>
+						{{ $t('task.quickAddMagic.epic1', {prefix: prefixes.epic}) }}
+						{{ $t('task.quickAddMagic.epic2', {prefix: prefixes.epic}) }}
+					</p>
+
 					<h3>{{ $t('task.quickAddMagic.dateAndTime') }}</h3>
 					<p>
 						{{ $t('task.quickAddMagic.date') }}

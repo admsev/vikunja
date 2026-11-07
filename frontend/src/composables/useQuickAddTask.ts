@@ -9,10 +9,11 @@ import {
 } from '@/client/queries/taskMutations'
 import {ensureLabels, refreshLabels, getLabelByExactTitle, useCreateLabelMutation} from '@/client/queries/labels'
 import {ensureProjects, findProjectByExactTitle} from '@/client/queries/projects'
+import {ensureProjectEpics, findEpicByTitle} from '@/client/queries/epics'
 import {searchProjectUsers} from '@/client/queries/userSearch'
 import {useAuthStore} from '@/stores/auth'
 import {useConfigStore} from '@/stores/config'
-import {parseTaskText, PREFIXES} from '@/modules/quickAddMagic'
+import {cleanupItemText, parseTaskText, PREFIXES, type ParsedTaskText, type PrefixMode} from '@/modules/quickAddMagic'
 import {buildQuickAddTask} from '@/helpers/task'
 import {getRandomColorHex} from '@/helpers/color/randomColor'
 import {runWrites} from '@/helpers/runWrites'
@@ -87,6 +88,16 @@ export function useQuickAddTask() {
 		}
 	}
 
+	// Resolves the parsed epic name in the task's project and removes it from the title.
+	// A name that matches no epic stays part of the title.
+	async function takeEpicFromText(parsed: ParsedTaskText, mode: PrefixMode, projectId: number) {
+		const prefix = PREFIXES[mode]?.epic
+		if (!parsed.epic || !prefix || projectId <= 0) return undefined
+		const epic = findEpicByTitle(await ensureProjectEpics(projectId), parsed.epic)
+		if (epic) parsed.text = cleanupItemText(parsed.text, [parsed.epic], prefix).trim()
+		return epic
+	}
+
 	async function build(input: Partial<Task>, context: ClientRequestContext) {
 		const mode = auth.settings.frontend_settings.quick_add_magic_mode
 		const parsed = parseTaskText(input.title ?? '', mode)
@@ -96,6 +107,8 @@ export function useQuickAddTask() {
 			project: magicOnly ? null : parsed.project,
 			projectId: input.project_id ?? 0,
 		})
+		assertClientRequestContext(context)
+		const epic = magicOnly ? undefined : await takeEpicFromText(parsed, mode, project_id)
 		assertClientRequestContext(context)
 		const matches = magicOnly ? [] : await Promise.all(parsed.assignees.map(async match => {
 			const users = await searchProjectUsers(project_id, match)
@@ -110,7 +123,7 @@ export function useQuickAddTask() {
 		return {
 			task: buildQuickAddTask(
 				parsed,
-				{...input, project_id},
+				{...input, project_id, ...(epic ? {epic_id: epic.id} : {})},
 				PREFIXES[mode],
 				matches.filter(user => user !== undefined),
 				defaults,

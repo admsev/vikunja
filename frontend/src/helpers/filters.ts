@@ -53,6 +53,8 @@ export const AVAILABLE_FILTER_FIELDS = [
 	'done',
 	'priority',
 	'percentDone',
+	// The epic's task id, 0 for tasks without an epic.
+	'epic',
 ]
 
 export const FILTER_OPERATORS = [

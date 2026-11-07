@@ -42,6 +42,12 @@
 							<FancyCheckbox v-model="activeColumns.priority">
 								{{ $t('task.attributes.priority') }}
 							</FancyCheckbox>
+							<FancyCheckbox
+								v-if="projectId > 0"
+								v-model="activeColumns.epic"
+							>
+								{{ $t('task.attributes.epic') }}
+							</FancyCheckbox>
 							<FancyCheckbox v-model="activeColumns.labels">
 								{{ $t('task.attributes.labels') }}
 							</FancyCheckbox>
@@ -146,6 +152,17 @@
 											:order="sortBy.priority"
 											:label="$t('task.attributes.priority')"
 											@click="sort('priority', $event)"
+										/>
+									</th>
+									<th
+										v-if="showEpicColumn"
+										:aria-sort="ariaSort('epic_id')"
+									>
+										{{ $t('task.attributes.epic') }}
+										<Sort
+											:order="sortBy.epic_id"
+											:label="$t('task.attributes.epic')"
+											@click="sort('epic_id', $event)"
 										/>
 									</th>
 									<th v-if="activeColumns.labels">
@@ -276,6 +293,13 @@
 											:show-all="true"
 										/>
 									</td>
+									<td v-if="showEpicColumn">
+										<EpicChip
+											v-if="t.epic_id"
+											:epic-id="t.epic_id"
+											:project-id="t.project_id"
+										/>
+									</td>
 									<td v-if="activeColumns.labels">
 										<Labels :labels="t.labels" />
 									</td>
@@ -356,6 +380,7 @@ import Done from '@/components/misc/Done.vue'
 import User from '@/components/misc/User.vue'
 import PriorityLabel from '@/components/tasks/partials/PriorityLabel.vue'
 import Labels from '@/components/tasks/partials/Labels.vue'
+import EpicChip from '@/components/epics/EpicChip.vue'
 import TaskGlanceTooltip from '@/components/tasks/partials/TaskGlanceTooltip.vue'
 import DateTableCell from '@/components/tasks/partials/DateTableCell.vue'
 import CommentCount from '@/components/tasks/partials/CommentCount.vue'
@@ -402,6 +427,7 @@ const ACTIVE_COLUMNS_DEFAULT = {
 	project: false,
 	title: true,
 	priority: false,
+	epic: true,
 	labels: true,
 	assignees: true,
 	dueDate: true,
@@ -419,7 +445,9 @@ const SORT_BY_DEFAULT: SortBy = {
 	index: 'desc',
 }
 
-const activeColumns = useStorage('tableViewColumns', {...ACTIVE_COLUMNS_DEFAULT})
+const activeColumns = useStorage('tableViewColumns', {...ACTIVE_COLUMNS_DEFAULT}, undefined, {mergeDefaults: true})
+// Epics are per project, so saved filters and favorites have no epic column.
+const showEpicColumn = computed(() => activeColumns.value.epic && props.projectId > 0)
 const sortBy = useStorage<SortBy>('tableViewSortBy', {...SORT_BY_DEFAULT})
 
 const taskList = useTaskList(

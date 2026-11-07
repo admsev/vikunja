@@ -14,6 +14,7 @@ import {useTasks} from '@/composables/useTasks'
 import {error} from '@/message'
 import {useAuthStore} from '@/stores/auth'
 import {useViewFiltersStore} from '@/stores/viewFilters'
+import {regularTaskParams, useEpicFilter} from '@/composables/useEpicFilter'
 
 export type Order = 'asc' | 'desc' | 'none'
 
@@ -31,11 +32,12 @@ export interface SortBy {
 	updated?: Order
 	done_at?: Order,
 	position?: Order,
+	epic_id?: Order,
 }
 
 const VALID_SORT_FIELDS = new Set<string>(
 	['id', 'index', 'done', 'title', 'priority', 'due_date', 'start_date',
-		'end_date', 'percent_done', 'created', 'updated', 'done_at', 'position'],
+		'end_date', 'percent_done', 'created', 'updated', 'done_at', 'position', 'epic_id'],
 )
 
 function parseSortQuery(raw: string, fallback: SortBy): SortBy {
@@ -201,12 +203,14 @@ export function useTaskList(
 	)
 	
 	const authStore = useAuthStore()
+	const {epicFilter} = useEpicFilter()
 	
 	const scope = computed(() => ({
 		project: projectId.value,
 		view: projectViewId.value,
 		params: {
 			...allParams.value,
+			...regularTaskParams(projectId.value, allParams.value.filter ?? '', epicFilter.value),
 			filter_timezone: authStore.settings.timezone,
 			expand: expandGetter(),
 		},

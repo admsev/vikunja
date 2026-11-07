@@ -9,6 +9,7 @@ import {
 	type TaskResponse,
 } from './tasks'
 import {kanbanKeys, type BoardData} from './kanban'
+import {epicKeys} from './epics'
 import {totalPagesFor} from './pagination'
 import {getCachedProject} from './projects'
 
@@ -166,6 +167,8 @@ function targetBucketId(view: ProjectView, board: BoardData, task: TaskResponse)
 
 export function insertTaskIntoBoards(client: QueryClient, created: Task) {
 	const task = normalizeTask(created)
+	// Boards only list regular tasks.
+	if (task.is_epic) return
 	const unpatchable: QueryKey[] = []
 	for (const [key, board] of client.getQueriesData<BoardData>({queryKey: kanbanKeys.all})) {
 		const project = kanbanKeys.projectOf(key)
@@ -189,13 +192,44 @@ export function insertTaskIntoBoards(client: QueryClient, created: Task) {
 				: bucket),
 		})
 	}
-	for (const queryKey of unpatchable) {
+	refetchBoards(client, unpatchable)
+}
+
+function refetchBoards(client: QueryClient, keys: QueryKey[]) {
+	for (const queryKey of keys) {
 		void client.invalidateQueries({
 			queryKey,
 			exact: true,
 			refetchType: 'active',
 		})
 	}
+}
+
+// Boards narrowed by a filter, an epic included, can't be patched: the server decides membership.
+export function refetchFilteredBoards(client: QueryClient, projectId: number) {
+	refetchBoards(client, client.getQueriesData<BoardData>({queryKey: kanbanKeys.all})
+		.filter(([key, board]) => {
+			const project = kanbanKeys.projectOf(key)
+			const view = getCachedProject(project ?? 0, client)?.views?.find(item => item.id === kanbanKeys.viewOf(key))
+			return board && project === projectId && !canPatchBoard(view, kanbanKeys.paramsOf(key))
+		})
+		.map(([key]) => key))
+}
+
+// Epics are kept off boards; a task that stops being one joins them like a new task.
+export function placeConvertedTaskOnBoards(client: QueryClient, converted: Task) {
+	if (!converted.is_epic) {
+		insertTaskIntoBoards(client, converted)
+		return
+	}
+	for (const [key, board] of client.getQueriesData<BoardData>({queryKey: kanbanKeys.all})) {
+		if (board && converted.id !== undefined) removeTaskFromBoard(client, key, converted.id)
+	}
+}
+
+// Epic progress and titles change with the tasks of the epic.
+export function invalidateEpics(client: QueryClient) {
+	return client.invalidateQueries({queryKey: epicKeys.all})
 }
 
 export async function invalidateTaskMembership(

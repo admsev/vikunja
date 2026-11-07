@@ -12,6 +12,8 @@ export interface ParsedTaskText {
 	project: string | null,
 	priority: number | null,
 	assignees: string[],
+	// Resolved against the project's epics later; the text keeps it until then.
+	epic: string | null,
 	repeats: IRepeatAfter | null,
 }
 
@@ -20,4 +22,5 @@ export interface Prefixes {
 	project: string,
 	priority: string,
 	assignee: string,
+	epic: string,
 }

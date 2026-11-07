@@ -27,7 +27,7 @@ import {
 	taskQuery,
 	type TaskResponse,
 } from './tasks'
-import {insertTaskIntoBoards, invalidateTaskMembership} from './taskCache'
+import {insertTaskIntoBoards, invalidateEpics, invalidateTaskMembership} from './taskCache'
 import {timeEntryKeys} from './timeEntries'
 import {
 	normalizeProject,
@@ -125,6 +125,7 @@ export function invalidateAfterTrashChange(client: QueryClient, taskId?: number)
 	return Promise.all([
 		invalidateTrash(client),
 		invalidateTaskMembership(client, taskId, 'active'),
+		invalidateEpics(client),
 	])
 }
 
