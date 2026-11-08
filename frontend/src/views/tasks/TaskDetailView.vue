@@ -81,7 +81,7 @@
 					:task="task"
 					:can-write="canWrite"
 				/>
-				<template v-if="task.is_epic">
+				<template v-if="epicsEnabled && task.is_epic">
 					<span class="has-text-grey-light"> &gt; </span>
 					<span
 						v-cy="'epic-badge'"
@@ -92,7 +92,7 @@
 						{{ $t('task.attributes.epic') }}
 					</span>
 				</template>
-				<template v-else-if="task.epic_id">
+				<template v-else-if="epicsEnabled && task.epic_id">
 					<span class="has-text-grey-light"> &gt; </span>
 					<RouterLink
 						:to="{name: 'task.detail', params: {id: task.epic_id}}"
@@ -387,7 +387,7 @@
 
 					<!-- Epic -->
 					<div
-						v-if="activeFields.epic && !task.is_epic"
+						v-if="epicsEnabled && activeFields.epic && !task.is_epic"
 						class="details epic-field"
 					>
 						<div class="detail-title">
@@ -446,7 +446,7 @@
 
 					<!-- Tasks of this epic -->
 					<EpicTasks
-						v-if="task.is_epic && task.id"
+						v-if="epicsEnabled && task.is_epic && task.id"
 						:epic="{id: task.id, title: task.title ?? '', project_id: task.project_id ?? 0, hex_color: task.hex_color}"
 						:can-write="canWrite"
 					/>
@@ -576,7 +576,7 @@
 							{{ $t('task.detail.actions.color') }}
 						</XButton>
 						<XButton
-							v-if="!task.is_epic"
+							v-if="epicsEnabled && !task.is_epic"
 							v-cy="'task-action-epic'"
 							variant="secondary"
 							icon="bolt"
@@ -621,6 +621,7 @@
 							{{ $t('task.detail.actions.moveProject') }}
 						</XButton>
 						<XButton
+							v-if="epicsEnabled"
 							v-cy="'task-action-convert-epic'"
 							variant="secondary"
 							icon="bolt"
@@ -763,6 +764,7 @@ import TaskTimeTracking from '@/components/time-tracking/TaskTimeTracking.vue'
 import ChecklistSummary from '@/components/tasks/partials/ChecklistSummary.vue'
 import ColorPicker from '@/components/input/ColorPicker.vue'
 import EpicChip from '@/components/epics/EpicChip.vue'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 import EpicTasks from '@/components/epics/EpicTasks.vue'
 import EpicSelect from '@/components/epics/EpicSelect.vue'
 import {useEpicTasks} from '@/composables/useEpicTasks'
@@ -1106,6 +1108,8 @@ type FieldType =
 	| 'startDate'
 	| 'timeTracking'
 
+const epicsEnabled = useEpicsEnabled()
+
 const activeFields: { [type in FieldType]: boolean } = reactive({
 	assignees: false,
 	attachments: false,
@@ -1360,7 +1364,7 @@ function changeEpic(epic: EpicRef | null) {
 
 const convertTaskEpic = useConvertTaskEpicMutation()
 // The tasks an epic would release when converted back, read live so the confirmation is never skipped.
-const {tasks: epicTasks} = useEpicTasks(() => task.value.is_epic && task.value.id
+const {tasks: epicTasks} = useEpicTasks(() => epicsEnabled.value && task.value.is_epic && task.value.id
 	? {id: task.value.id, project_id: task.value.project_id ?? 0}
 	: null)
 const confirmingConversion = ref(false)

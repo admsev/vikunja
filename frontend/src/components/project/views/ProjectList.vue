@@ -7,7 +7,7 @@
 	>
 		<template #header>
 			<EpicGroupToggle
-				v-if="projectId > 0"
+				v-if="epicsEnabled && projectId > 0"
 				v-model="groupByEpic"
 				:label="$t('epic.group.byEpic')"
 			/>
@@ -132,6 +132,7 @@ import SortPopup from '@/components/project/partials/SortPopup.vue'
 import EpicGroupToggle from '@/components/epics/EpicGroupToggle.vue'
 import EpicGroupedTaskList from '@/components/epics/EpicGroupedTaskList.vue'
 import {useEpicGrouping} from '@/composables/useEpicGrouping'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 
 import {useTaskList} from '@/composables/useTaskList'
 import {useTaskDragToProject} from '@/composables/useTaskDragToProject'
@@ -194,6 +195,7 @@ watch([projectId, () => props.viewId], () => { dragTasks.value = null })
 
 const isPositionSorting = computed(() => 'position' in sortByParam.value)
 
+const epicsEnabled = useEpicsEnabled()
 const groupByEpic = useEpicGrouping(projectId, () => props.viewId)
 
 const baseStore = useBaseStore()

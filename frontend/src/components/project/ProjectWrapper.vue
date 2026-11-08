@@ -125,6 +125,7 @@ import Message from '@/components/misc/Message.vue'
 import CustomTransition from '@/components/misc/CustomTransition.vue'
 import SwitchView from '@/components/misc/SwitchView.vue'
 import EpicsPanel from '@/components/epics/EpicsPanel.vue'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 import {EPIC_STORAGE_KEYS} from '@/constants/epics'
 import {getEpicChipStyles} from '@/helpers/epicColor'
 import {PERMISSIONS as Permissions} from '@/constants/permissions'
@@ -179,7 +180,8 @@ useTitle(() => currentProject.value?.id ? getProjectTitle(currentProject.value) 
 const views = computed(() => currentProject.value.views)
 
 // Epics belong to a real project; pseudo projects (favorites, saved filters) span several.
-const supportsEpics = computed(() => props.projectId > 0)
+const epicsEnabled = useEpicsEnabled()
+const supportsEpics = computed(() => epicsEnabled.value && props.projectId > 0)
 const canWrite = computed(() => (currentProject.value.max_permission ?? 0) > Permissions.READ)
 const epicsPanelOpen = useLocalStorage<Record<number, boolean>>(EPIC_STORAGE_KEYS.panelOpen, {})
 const showEpicsPanel = computed({

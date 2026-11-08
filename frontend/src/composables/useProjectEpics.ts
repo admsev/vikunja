@@ -2,6 +2,7 @@ import {computed, toValue, type MaybeRefOrGetter} from 'vue'
 import {useQuery} from '@tanstack/vue-query'
 
 import {projectEpicsQuery, type EpicResponse} from '@/client/queries/epics'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 
 // Every epic chip looks its epic up here; one index per fetched list instead of one per chip.
 const indexes = new WeakMap<EpicResponse[], Map<number, EpicResponse>>()
@@ -18,8 +19,12 @@ function indexById(epics: EpicResponse[]): Map<number, EpicResponse> {
 const NO_EPICS: EpicResponse[] = []
 
 export function useProjectEpics(projectId: MaybeRefOrGetter<number>) {
-	const query = useQuery(computed(() => projectEpicsQuery(toValue(projectId))))
-	const epics = computed(() => query.data.value ?? NO_EPICS)
+	const epicsEnabled = useEpicsEnabled()
+	const query = useQuery(computed(() => {
+		const options = projectEpicsQuery(toValue(projectId))
+		return {...options, enabled: epicsEnabled.value && options.enabled}
+	}))
+	const epics = computed(() => epicsEnabled.value ? query.data.value ?? NO_EPICS : NO_EPICS)
 	const epicsById = computed(() => indexById(epics.value))
 
 	return {

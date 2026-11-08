@@ -3,6 +3,7 @@ import {useRouteQuery} from '@vueuse/router'
 
 import {NO_EPIC} from '@/constants/epics'
 import type {TaskFilterParams} from '@/client/queries/tasks'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 
 // The epic a project view is narrowed to, kept in the `epic` route query so it survives
 // reloads and switching between views: an epic id, or NO_EPIC for tasks without an epic.
@@ -36,9 +37,11 @@ export function regularTaskParams(projectId: number, filter: string, epic: EpicF
 }
 
 export function useEpicFilter() {
+	const epicsEnabled = useEpicsEnabled()
 	const raw = useRouteQuery<string | undefined>('epic')
 	const epicFilter = computed<EpicFilter>({
-		get: () => parseEpicFilter(raw.value),
+		// A leftover epic in the URL must not narrow the view while epics are hidden.
+		get: () => epicsEnabled.value ? parseEpicFilter(raw.value) : null,
 		set: value => { raw.value = value === null ? undefined : String(value) },
 	})
 
