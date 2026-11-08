@@ -67,6 +67,10 @@ type TaskCollection struct {
 	// former sets this so a kanban view path still yields tasks.
 	forceFlatTasks bool
 
+	// EpicScope picks regular tasks, epics or both. It is a condition of its own rather
+	// than part of Filter, so a crafted filter can't widen it.
+	EpicScope EpicScope `query:"-" json:"-"`
+
 	web.CRUDable    `xorm:"-" json:"-"`
 	web.Permissions `xorm:"-" json:"-"`
 }
@@ -80,6 +84,8 @@ const TaskCollectionExpandComments TaskCollectionExpandable = `comments`
 const TaskCollectionExpandCommentCount TaskCollectionExpandable = `comment_count`
 const TaskCollectionExpandTimeEntriesCount TaskCollectionExpandable = `time_entries_count`
 const TaskCollectionExpandIsUnread TaskCollectionExpandable = `is_unread`
+const TaskCollectionExpandEpic TaskCollectionExpandable = `epic`
+const TaskCollectionExpandEpicProgress TaskCollectionExpandable = `epic_progress`
 
 // Validate validates if the TaskCollectionExpandable value is valid.
 func (t TaskCollectionExpandable) Validate() error {
@@ -98,9 +104,13 @@ func (t TaskCollectionExpandable) Validate() error {
 		return nil
 	case TaskCollectionExpandIsUnread:
 		return nil
+	case TaskCollectionExpandEpic:
+		return nil
+	case TaskCollectionExpandEpicProgress:
+		return nil
 	}
 
-	return InvalidFieldErrorWithMessage([]string{"expand"}, "Expand must be one of the following values: subtasks, buckets, reactions, comments, comment_count, time_entries_count, is_unread")
+	return InvalidFieldErrorWithMessage([]string{"expand"}, "Expand must be one of the following values: subtasks, buckets, reactions, comments, comment_count, time_entries_count, is_unread, epic, epic_progress")
 }
 
 func validateTaskField(fieldName string) error {
@@ -150,6 +160,7 @@ func getTaskFilterOptsFromCollection(tf *TaskCollection, projectView *ProjectVie
 		filterIncludeNulls: tf.FilterIncludeNulls,
 		filter:             tf.Filter,
 		filterTimezone:     tf.FilterTimezone,
+		epicScope:          tf.EpicScope,
 	}
 
 	if projectView != nil {
@@ -336,6 +347,7 @@ func (tf *TaskCollection) ReadAll(s *xorm.Session, a web.Auth, search string, pa
 		tc.isSavedFilter = true
 		tc.Expand = tf.Expand
 		tc.forceFlatTasks = tf.forceFlatTasks
+		tc.EpicScope = tf.EpicScope
 
 		tc.mergeRequestFilter(tf)
 

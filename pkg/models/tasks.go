@@ -127,6 +127,17 @@ type Task struct {
 	// Determines how far a task is left from being done
 	PercentDone float64 `xorm:"DOUBLE null" json:"percent_done" doc:"How far the task is from done, between 0 and 1."`
 
+	// Whether this task is an epic. Epics group other tasks of the same project.
+	IsEpic bool `xorm:"not null default false INDEX" json:"is_epic" doc:"Whether this task is an epic. Other tasks of the same project can be assigned to an epic via epic_id. Turning an epic back into a task detaches its tasks."`
+	// The id of the epic this task belongs to, 0 for none.
+	EpicID int64 `xorm:"bigint not null default 0 INDEX" json:"epic_id" doc:"The id of the epic this task belongs to, or 0 for none. Must be an epic (is_epic) in the same project; epics cannot belong to another epic."`
+	// A summary of the epic this task belongs to. Only present when requested via the epic expand option.
+	Epic *EpicSummary `xorm:"-" json:"epic,omitempty" readOnly:"true" doc:"A summary of the epic this task belongs to. Only present when requested via the epic expand option and the task has an epic."`
+	// The progress of an epic. Only present on epics when requested via the epic_progress expand option.
+	EpicProgress *EpicProgress `xorm:"-" json:"epic_progress,omitempty" readOnly:"true" doc:"How many of the epic's tasks are done. Only present on epics when requested via the epic_progress expand option."`
+	// See MarkEpicFieldsProvided.
+	epicFieldsProvided bool
+
 	// The task identifier, based on the project identifier and the task's index
 	Identifier string `xorm:"-" json:"identifier" readOnly:"true" doc:"The textual task identifier, derived from the project identifier and the task index (e.g. \"PROJ-12\")."`
 	// The task index, calculated per project
@@ -262,6 +273,7 @@ type taskSearchOptions struct {
 	projectIDs         []int64
 	expand             []TaskCollectionExpandable
 	projectViewID      int64
+	epicScope          EpicScope
 
 	// userProvidedSort distinguishes an explicit sort_by from the id/position
 	// defaults appended later, so relevance ordering only replaces the default sort.
@@ -898,6 +910,16 @@ func addMoreInfoToTasks(s *xorm.Session, taskMap map[int64]*Task, a web.Auth, vi
 				if err != nil {
 					return
 				}
+			case TaskCollectionExpandEpic:
+				err = addEpicsToTasks(s, taskMap, projects)
+				if err != nil {
+					return err
+				}
+			case TaskCollectionExpandEpicProgress:
+				err = addEpicProgressToTasks(s, taskMap)
+				if err != nil {
+					return err
+				}
 			}
 			expanded[expandable] = true
 		}
@@ -1061,6 +1083,10 @@ func createTask(s *xorm.Session, t *Task, a web.Auth, updateAssignees bool, setB
 
 // CreateTasksForImport preserves preset indexes across the whole imported batch.
 func CreateTasksForImport(s *xorm.Session, projectID int64, tasks []*Task, a web.Auth) error {
+	// Imported epic ids point into the source instance and cannot be resolved here.
+	for _, t := range tasks {
+		t.EpicID = 0
+	}
 	return unwrapBulkCreateError(createTasks(s, projectID, tasks, a, true, true, true))
 }
 
@@ -1170,6 +1196,10 @@ func createTasksInViews(s *xorm.Session, projectID int64, tasks []*Task, a web.A
 		return err
 	}
 
+	if err := validateEpicsForTasks(s, tasks); err != nil {
+		return err
+	}
+
 	err = setNewTaskIndexes(s, projectID, tasks)
 	if err != nil {
 		return err
@@ -1249,6 +1279,8 @@ func createTasksInViews(s *xorm.Session, projectID int64, tasks []*Task, a web.A
 }
 
 func placeTasksInViews(s *xorm.Session, a web.Auth, views []*ProjectView, tasks []*Task, setBucket bool, providedBuckets map[int64]*Bucket) error {
+	// Epics are not shown on boards; see syncEpicBuckets.
+	tasks = slices.DeleteFunc(slices.Clone(tasks), func(t *Task) bool { return t.IsEpic })
 	positions, taskBuckets, err := setTasksInBucketInViews(s, views, tasks, a, setBucket, providedBuckets)
 	if err != nil {
 		return err
@@ -1431,6 +1463,8 @@ func (t *Task) updateSingleTaskInViews(s *xorm.Session, a web.Auth, fields []str
 		"bucket_id",
 		"repeat_mode",
 		"cover_image_attachment_id",
+		taskPropertyIsEpic,
+		taskPropertyEpicID,
 	}
 
 	// Validate fields if provided
@@ -1504,6 +1538,12 @@ func (t *Task) updateSingleTaskInViews(s *xorm.Session, a web.Auth, fields []str
 		if !fieldSet["reminders"] {
 			t.Reminders = ot.Reminders
 		}
+		if !fieldSet[taskPropertyIsEpic] {
+			t.IsEpic = ot.IsEpic
+		}
+		if !fieldSet[taskPropertyEpicID] {
+			t.EpicID = ot.EpicID
+		}
 	}
 
 	if err := validateTaskLimits(t, &ot); err != nil {
@@ -1518,6 +1558,18 @@ func (t *Task) updateSingleTaskInViews(s *xorm.Session, a web.Auth, fields []str
 
 	if err := validateRepeatAfter(t.RepeatAfter); err != nil {
 		return err
+	}
+
+	if len(fields) == 0 && !t.epicFieldsProvided {
+		t.IsEpic = ot.IsEpic
+		t.EpicID = ot.EpicID
+	}
+	epicIDChanged, err := applyEpicChanges(s, a, t, &ot)
+	if err != nil {
+		return err
+	}
+	if epicIDChanged && !slices.Contains(colsToUpdate, taskPropertyEpicID) {
+		colsToUpdate = append(colsToUpdate, taskPropertyEpicID)
 	}
 
 	// If the task is being moved between projects, make sure to move the bucket + index as well
@@ -1549,12 +1601,11 @@ func (t *Task) updateSingleTaskInViews(s *xorm.Session, a web.Auth, fields []str
 		colsToUpdate = append(colsToUpdate, "index")
 	}
 
+	// The manual kanban views of the task's project, already locked by the caller.
 	views := []*ProjectView{}
-	if t.Done != ot.Done || t.ProjectID != ot.ProjectID {
-		for _, view := range lockedViews {
-			if view.ProjectID == t.ProjectID && view.ViewKind == ProjectViewKindKanban && view.BucketConfigurationMode == BucketConfigurationModeManual {
-				views = append(views, view)
-			}
+	for _, view := range lockedViews {
+		if view.ProjectID == t.ProjectID && view.ViewKind == ProjectViewKindKanban && view.BucketConfigurationMode == BucketConfigurationModeManual {
+			views = append(views, view)
 		}
 	}
 
@@ -1569,40 +1620,17 @@ func (t *Task) updateSingleTaskInViews(s *xorm.Session, a web.Auth, fields []str
 			return err
 		}
 
-		for _, view := range views {
-			var bucketID = view.DoneBucketID
-			if bucketID == 0 || !t.Done {
-				bucketID, err = getDefaultBucketID(s, view)
-				if err != nil {
-					return err
-				}
-			}
-
-			tb := &TaskBucket{
-				BucketID:      bucketID,
-				TaskID:        t.ID,
-				ProjectViewID: view.ID,
-				ProjectID:     t.ProjectID,
-			}
-			err = updateTaskBucket(s, a, tb)
-			if err != nil {
-				return err
-			}
-
-			tp, err := calculateNewPositionForTask(s, a, t, view)
-			if err != nil {
-				return err
-			}
-
-			err = updateTaskPosition(s, a, tp)
-			if err != nil {
+		if !t.IsEpic {
+			if err := addTaskToDefaultBuckets(s, a, t, views); err != nil {
 				return err
 			}
 		}
+	} else if err := syncEpicBuckets(s, a, t, ot.IsEpic, views); err != nil {
+		return err
 	}
 
 	// When a task changed its done status, make sure it is in the correct bucket
-	if t.ProjectID == ot.ProjectID && !t.isRepeating() && t.Done != ot.Done {
+	if t.ProjectID == ot.ProjectID && !t.IsEpic && !t.isRepeating() && t.Done != ot.Done {
 		err = t.moveTaskToDoneBuckets(s, a, views)
 		if err != nil {
 			return
@@ -1612,7 +1640,7 @@ func (t *Task) updateSingleTaskInViews(s *xorm.Session, a web.Auth, fields []str
 	// Repeating tasks don't stay in the done bucket — route them back
 	// to the default bucket so the next iteration shows up in the
 	// "To-Do" column. See #2573.
-	if t.ProjectID == ot.ProjectID && t.isRepeating() && !ot.Done && t.Done {
+	if t.ProjectID == ot.ProjectID && !t.IsEpic && t.isRepeating() && !ot.Done && t.Done {
 		err = t.moveTaskToDefaultBuckets(s, a, views)
 		if err != nil {
 			return
@@ -1764,6 +1792,13 @@ func (t *Task) updateSingleTaskInViews(s *xorm.Session, a web.Auth, fields []str
 	// Attachment cover image
 	if t.CoverImageAttachmentID == 0 {
 		ot.CoverImageAttachmentID = 0
+	}
+	// Epic
+	if !t.IsEpic {
+		ot.IsEpic = false
+	}
+	if t.EpicID == 0 {
+		ot.EpicID = 0
 	}
 
 	_, err = s.ID(t.ID).
@@ -2311,6 +2346,14 @@ func (t *Task) Delete(s *xorm.Session, a web.Auth) (err error) {
 // It does not dispatch a TaskDeletedEvent — that already happened when the
 // task was soft-deleted by the user.
 func hardDeleteTask(s *xorm.Session, t *Task) (err error) {
+
+	// Trashing an epic keeps its tasks attached so a restore brings them back; only the
+	// permanent delete releases them.
+	if t.IsEpic {
+		if err = clearEpicID(s, t.ID); err != nil {
+			return err
+		}
+	}
 
 	// Delete assignees
 	if _, err = s.Where("task_id = ?", t.ID).Delete(&TaskAssginee{}); err != nil {

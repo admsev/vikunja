@@ -30,8 +30,11 @@ import {normalizeTask, taskKeys, type PaginatedTaskResponse, type TaskResponse} 
 import {bucketKeys, kanbanKeys, normalizeBucket, type BoardData} from './kanban'
 import {
 	insertTaskIntoBoards,
+	invalidateEpics,
 	invalidateTaskMembership,
 	mapTaskEverywhere,
+	placeConvertedTaskOnBoards,
+	refetchFilteredBoards,
 	removeTaskEverywhere,
 	replaceTaskEverywhere,
 	taskQueryKeys,
@@ -41,6 +44,7 @@ import {invalidateAfterTrashChange} from './trash'
 import {colorFromHex} from '@/helpers/color/colorFromHex'
 import {getDefaultBucketId, moveTaskToBucket} from '@/helpers/task'
 import {translatedError} from '@/message'
+import {i18n} from '@/i18n'
 
 const API_ZERO_DATE = '0001-01-01T00:00:00Z'
 
@@ -63,6 +67,22 @@ const writableFields = [
 	'cover_image_attachment_id',
 ] as const satisfies readonly (keyof TaskWritable)[]
 
+// Only sent on create and through the epic mutations below: a cached copy of a task can hold a
+// stale epic, and patching it back on an unrelated edit would undo or reject a newer epic change.
+const epicFields = ['is_epic', 'epic_id'] as const satisfies readonly (keyof TaskWritable)[]
+
+type TaskEpicFields = Pick<TaskWritable, typeof epicFields[number]>
+
+function pickEpicFields(task: TaskEpicFields): TaskEpicFields {
+	return Object.fromEntries(epicFields
+		.filter(field => task[field] !== undefined)
+		.map(field => [field, task[field]]))
+}
+
+function taskCreateBody(task: Task): TaskWritable {
+	return {...taskWriteBody(task), ...pickEpicFields(task)}
+}
+
 export function taskWriteBody(task: Task): TaskWritable {
 	const body: TaskWritable = Object.fromEntries(
 		writableFields
@@ -81,8 +101,12 @@ export function taskWriteBody(task: Task): TaskWritable {
 	return body
 }
 
+function toPatchOps(body: TaskWritable): JsonPatchOp[] {
+	return Object.entries(body).map(([field, value]) => ({op: 'add', path: `/${field}`, value}))
+}
+
 function taskPatchBody(task: Task): JsonPatchOp[] {
-	return Object.entries(taskWriteBody(task)).map(([field, value]) => ({op: 'add', path: `/${field}`, value}))
+	return toPatchOps(taskWriteBody(task))
 }
 
 function reconcileDoneBuckets(client: QueryClient, task: TaskResponse) {
@@ -146,15 +170,25 @@ function cachedViewBuckets(client: QueryClient, project: number, view: number) {
 	return board?.buckets ?? client.getQueryData<Bucket[]>(bucketKeys.list(project, view))
 }
 
-export function createTaskMutationOptions() {
+type CreateTaskInput = Task & Required<Pick<Task, 'project_id'>>
+
+export function createTaskMutationOptions(successMessage?: (task: Task, input: CreateTaskInput) => string) {
 	return contextMutationOptions({
-		mutationFn: async (task: Task & Required<Pick<Task, 'project_id'>>) => (await tasksCreate({
+		mutationFn: async (task: CreateTaskInput) => (await tasksCreate({
 			path: {project: task.project_id},
-			body: taskWriteBody(task),
+			body: taskCreateBody(task),
 		})).data,
 		onSuccess: (task, _input, client) => insertTaskIntoBoards(client, task),
-		onSettled: (_task, client) => invalidateTaskMembership(client, undefined, 'active'),
+		onSettled: (_task, client) => Promise.all([
+			invalidateTaskMembership(client, undefined, 'active'),
+			invalidateEpics(client),
+		]),
+		successMessage,
 	})
+}
+
+export function createEpicMutationOptions() {
+	return createTaskMutationOptions((_epic, {title}) => i18n.global.t('epic.created', {title}))
 }
 
 export function updateTaskMutationOptions(optimistic = false) {
@@ -171,7 +205,54 @@ export function updateTaskMutationOptions(optimistic = false) {
 			replaceTaskEverywhere(client, task)
 			reconcileDoneBuckets(client, normalizeTask({...task, id: input.id}))
 		},
-		onSettled: ({id}, client) => invalidateTaskMembership(client, id),
+		onSettled: ({id}, client) => Promise.all([
+			invalidateTaskMembership(client, id),
+			invalidateEpics(client),
+		]),
+	})
+}
+
+export type EpicRef = {id: number, title: string}
+
+function taskEpicMutationOptions<TInput extends {taskId: number}>(options: {
+	fields: (input: TInput) => TaskEpicFields,
+	placeOnBoards: (client: QueryClient, task: Task) => void,
+	successMessage: (input: TInput) => string,
+}) {
+	return contextMutationOptions({
+		mutationFn: async (input: TInput) => (await patchTasksRead({
+			path: {task: input.taskId},
+			body: toPatchOps(pickEpicFields(options.fields(input))),
+		})).data,
+		onSuccess: (task, _input, client) => {
+			replaceTaskEverywhere(client, task)
+			options.placeOnBoards(client, task)
+		},
+		// Lists filtered by epic change membership, so active ones are re-read.
+		onSettled: ({taskId}, client) => Promise.all([
+			invalidateTaskMembership(client, taskId, 'active'),
+			invalidateEpics(client),
+		]),
+		successMessage: (_task, input) => options.successMessage(input),
+	})
+}
+
+// Puts a task into an epic, or takes it out of its epic when epic is null.
+export function assignTaskToEpicMutationOptions() {
+	return taskEpicMutationOptions<{taskId: number, epic: EpicRef | null}>({
+		fields: ({epic}) => ({epic_id: epic?.id ?? 0}),
+		placeOnBoards: (client, task) => refetchFilteredBoards(client, task.project_id ?? 0),
+		successMessage: ({epic}) => epic
+			? i18n.global.t('epic.taskAssigned', {epic: epic.title})
+			: i18n.global.t('epic.taskRemoved'),
+	})
+}
+
+export function convertTaskEpicMutationOptions() {
+	return taskEpicMutationOptions<{taskId: number, isEpic: boolean}>({
+		fields: ({isEpic}) => ({is_epic: isEpic}),
+		placeOnBoards: placeConvertedTaskOnBoards,
+		successMessage: ({isEpic}) => i18n.global.t(isEpic ? 'epic.convert.doneToEpic' : 'epic.convert.doneToTask'),
 	})
 }
 
@@ -203,7 +284,7 @@ export function bulkCreateTasksMutationOptions() {
 					try {
 						const {data} = await tasksBulkCreate({
 							path: {project},
-							body: {tasks: batch.map(({task}) => taskWriteBody(task))},
+							body: {tasks: batch.map(({task}) => taskCreateBody(task))},
 						})
 						if (data.tasks?.length !== batch.length) throw translatedError('task.bulkCreateUnexpectedResponse')
 						data.tasks!.forEach((task, index) => { tasks[batch[index].index] = task })
@@ -219,7 +300,10 @@ export function bulkCreateTasksMutationOptions() {
 		onSuccess: ({tasks}, _input, client) => [...tasks].reverse().forEach(task => {
 			if (task) insertTaskIntoBoards(client, task)
 		}),
-		onSettled: (_input, client) => invalidateTaskMembership(client, undefined, 'active'),
+		onSettled: (_input, client) => Promise.all([
+			invalidateTaskMembership(client, undefined, 'active'),
+			invalidateEpics(client),
+		]),
 	})
 }
 
@@ -227,7 +311,10 @@ export function duplicateTaskMutationOptions() {
 	return contextMutationOptions({
 		mutationFn: async (id: number) => (await tasksDuplicate({path: {task: id}})).data.duplicated_task!,
 		onSuccess: (task, _id, client) => insertTaskIntoBoards(client, task),
-		onSettled: (_id, client) => invalidateTaskMembership(client, undefined, 'active'),
+		onSettled: (_id, client) => Promise.all([
+			invalidateTaskMembership(client, undefined, 'active'),
+			invalidateEpics(client),
+		]),
 	})
 }
 
@@ -431,6 +518,18 @@ export function useCreateTaskMutation() {
 
 export function useUpdateTaskMutation(optimistic = false) {
 	return useMutation(updateTaskMutationOptions(optimistic))
+}
+
+export function useCreateEpicMutation() {
+	return useMutation(createEpicMutationOptions())
+}
+
+export function useAssignTaskToEpicMutation() {
+	return useMutation(assignTaskToEpicMutationOptions())
+}
+
+export function useConvertTaskEpicMutation() {
+	return useMutation(convertTaskEpicMutationOptions())
 }
 
 export function useDeleteTaskMutation() {

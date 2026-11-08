@@ -6,6 +6,11 @@
 		:view-id
 	>
 		<template #header>
+			<EpicGroupToggle
+				v-if="epicsEnabled && projectId > 0"
+				v-model="swimlanes"
+				:label="$t('epic.group.swimlanes')"
+			/>
 			<div class="filter-container">
 				<FilterPopup
 					v-if="!isSavedFilterProject(project)"
@@ -19,7 +24,18 @@
 
 		<template #default>
 			<div class="kanban-view">
+				<KanbanSwimlanes
+					v-if="swimlanes"
+					:class="{'is-loading': showInitialLoading}"
+					class="loader-container"
+					:buckets="buckets"
+					:project-id="projectId"
+					:view-id="viewId"
+					:can-write="canWrite"
+					@loadMore="loadNextBucketPage"
+				/>
 				<div
+					v-else
 					:class="{ 'is-loading': showInitialLoading, 'is-dragging': drag || dragBucket }"
 					class="kanban kanban-bucket-container loader-container"
 				>
@@ -303,6 +319,9 @@
 
 <script setup lang="ts">
 import {useKanban} from '@/composables/useKanban'
+import {regularTaskParams, useEpicFilter} from '@/composables/useEpicFilter'
+import {useTaskDropToEpic} from '@/composables/useTaskDropToEpic'
+import {TASK_DRAG_OPTIONS} from '@/constants/taskDrag'
 import {bucketHasMore, kanbanKeys, type BucketResponse} from '@/client/queries/kanban'
 import {removeTaskFromBoard} from '@/client/queries/taskCache'
 import {useUpdateTaskPositionMutation, useMoveTaskMutation} from '@/client/queries/taskMutations'
@@ -329,6 +348,10 @@ import {useAuthStore} from '@/stores/auth'
 
 import ProjectWrapper from '@/components/project/ProjectWrapper.vue'
 import FilterPopup from '@/components/project/partials/FilterPopup.vue'
+import EpicGroupToggle from '@/components/epics/EpicGroupToggle.vue'
+import KanbanSwimlanes from '@/components/epics/KanbanSwimlanes.vue'
+import {useEpicGrouping} from '@/composables/useEpicGrouping'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 import KanbanCard from '@/components/tasks/partials/KanbanCard.vue'
 import Dropdown from '@/components/misc/Dropdown.vue'
 import DropdownItem from '@/components/misc/DropdownItem.vue'
@@ -360,11 +383,9 @@ const projectId = toRef(props, 'projectId')
 
 const DRAG_OPTIONS = {
 	// sortable options
-	animation: 150,
+	...TASK_DRAG_OPTIONS,
 	ghostClass: 'ghost',
 	dragClass: 'task-dragging',
-	delayOnTouchOnly: true,
-	delay: 1000,
 	// With native drag sortable leaves the board to the browser's auto-scroll: Chrome's edge zone is ~20px, Firefox has none.
 	forceAutoScrollFallback: true,
 	scrollSensitivity: 100,
@@ -383,6 +404,7 @@ const authStore = useAuthStore()
 
 const alwaysShowBucketTaskCount = computed(() => authStore.settings.frontend_settings.always_show_bucket_task_count)
 const {handleTaskDropToProject} = useTaskDragToProject()
+const {handleTaskDropToEpic} = useTaskDropToEpic()
 const positionMutation = useUpdateTaskPositionMutation()
 const moveMutation = useMoveTaskMutation()
 
@@ -500,7 +522,12 @@ function onHandleTouchMove(e: TouchEvent) {
 	}
 }
 
-const boardParams = computed(() => ({...params.value, filter_timezone: authStore.settings.timezone}))
+const {epicFilter} = useEpicFilter()
+const boardParams = computed(() => ({
+	...params.value,
+	...regularTaskParams(projectId.value, params.value.filter ?? '', epicFilter.value),
+	filter_timezone: authStore.settings.timezone,
+}))
 const board = useKanban(projectId, () => props.viewId, boardParams)
 const queryClient = useQueryClient()
 const buckets = board.buckets
@@ -557,6 +584,10 @@ function handleTaskContainerScroll(id: number, el: HTMLElement) {
 		return
 	}
 
+	loadNextBucketPage(id)
+}
+
+function loadNextBucketPage(id: number) {
 	// Mid-drag the copy in `buckets` is one task short, which would look like a missing page.
 	const bucket = board.data.value?.buckets.find(item => item.id === id)
 	if (bucketPageMutation.isPending.value || !bucket || !bucketHasMore(bucket)) return
@@ -564,10 +595,13 @@ function handleTaskContainerScroll(id: number, el: HTMLElement) {
 		project: projectId.value,
 		view: props.viewId,
 		params: boardParams.value,
-		bucket: id!,
-		page: (board.data.value?.pages[id!] ?? 1) + 1,
+		bucket: id,
+		page: (board.data.value?.pages[id] ?? 1) + 1,
 	})
 }
+
+const epicsEnabled = useEpicsEnabled()
+const swimlanes = useEpicGrouping(projectId, () => props.viewId)
 
 function updateTasks(bucketId: number, tasks: BucketResponse['tasks']) {
 	if (!board.dragBuckets.value) board.startDrag()
@@ -582,6 +616,11 @@ async function updateTaskPosition(e: SortableEvent & {originalEvent?: MouseEvent
 	drag.value = false
 	dragExpandedBuckets.value.clear()
 	try {
+		const epicDrop = handleTaskDropToEpic(e)
+		if (epicDrop) {
+			await epicDrop
+			return
+		}
 		const {moved} = await handleTaskDropToProject(e, task => {
 			// A moved task stays in a pseudo-project board (favorites, saved filters) until the board is re-read.
 			if (project < 0) {

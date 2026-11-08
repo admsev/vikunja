@@ -15,7 +15,7 @@ const sdk = vi.hoisted(() => ({
 const {tasksPositionUpdate: updatePosition} = sdk
 
 vi.mock('@/client/generated', () => sdk)
-vi.mock('@/stores/auth', () => ({useAuthStore: () => ({settings: {timezone: 'UTC'}})}))
+vi.mock('@/stores/auth', () => ({useAuthStore: () => ({settings: {timezone: 'UTC', frontend_settings: {}}})}))
 vi.mock('@/message', () => ({error: vi.fn()}))
 vi.mock('@/composables/useTaskDragToProject', () => ({
 	useTaskDragToProject: () => ({

@@ -5,6 +5,7 @@ const VIKUNJA_PREFIXES: Prefixes = {
 	project: '+',
 	priority: '!',
 	assignee: '@',
+	epic: '~',
 }
 
 const TODOIST_PREFIXES: Prefixes = {
@@ -12,6 +13,7 @@ const TODOIST_PREFIXES: Prefixes = {
 	project: '#',
 	priority: '!',
 	assignee: '+',
+	epic: '~',
 }
 
 export enum PrefixMode {

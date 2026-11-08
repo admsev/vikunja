@@ -153,6 +153,7 @@ describe('task domain helpers', () => {
 			project: null,
 			priority: null,
 			assignees: [],
+			epic: null,
 			repeats: null,
 		}
 		expect(

@@ -120,6 +120,27 @@ describe('Parse Task Text', () => {
 		expect(result.assignees[0]).toBe('user')
 	})
 
+	describe('Epic', () => {
+		it('should parse an epic', () => {
+			const result = parseTaskText('Lorem Ipsum ~Auth')
+
+			expect(result.epic).toBe('Auth')
+			expect(result.text).toBe('Lorem Ipsum ~Auth')
+		})
+
+		it('should parse a quoted epic with spaces', () => {
+			expect(parseTaskText('Lorem Ipsum ~"Auth rewrite" today').epic).toBe('Auth rewrite')
+		})
+
+		it('should not parse a tilde inside a word', () => {
+			expect(parseTaskText('approx~5 minutes').epic).toBeNull()
+		})
+
+		it('should not parse an epic when disabled', () => {
+			expect(parseTaskText('Lorem Ipsum ~Auth', PrefixMode.Disabled).epic).toBeNull()
+		})
+	})
+
 	it('should ignore email addresses', () => {
 		const text = 'Lorem Ipsum email@example.com'
 		const result = parseTaskText(text)

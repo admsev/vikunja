@@ -238,6 +238,13 @@
 				v-model="settings.frontend_settings.always_show_bucket_task_count"
 				:label="$t('user.settings.general.alwaysShowBucketTaskCount')"
 			/>
+			<FormCheckbox
+				v-model="settings.frontend_settings.epics_enabled"
+				:label="$t('user.settings.general.epicsEnabled')"
+			/>
+			<p class="help">
+				{{ $t('user.settings.general.epicsEnabledHint') }}
+			</p>
 			<FormField
 				:label="$t('user.settings.backgroundBrightness.title')"
 				layout="two-col"

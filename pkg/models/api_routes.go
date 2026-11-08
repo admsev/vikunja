@@ -621,7 +621,9 @@ func requiredScopeForExpand(value string) (group, permission string, needsScope 
 		return "reactions", "read_all", true
 	case TaskCollectionExpandTimeEntriesCount:
 		return "time_entries", "read_all", true
-	case TaskCollectionExpandSubtasks, TaskCollectionExpandBuckets, TaskCollectionExpandIsUnread:
+	// Epics are tasks of the same project, so the task scopes cover them.
+	case TaskCollectionExpandSubtasks, TaskCollectionExpandBuckets, TaskCollectionExpandIsUnread,
+		TaskCollectionExpandEpic, TaskCollectionExpandEpicProgress:
 		return "", "", false
 	}
 	return "", "", false

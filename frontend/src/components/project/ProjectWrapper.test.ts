@@ -3,12 +3,17 @@ import {describe, expect, it, vi} from 'vitest'
 
 import type {ProjectResponse} from '@/client/queries/projects'
 
-const {currentProject} = vi.hoisted(() => ({
+const {currentProject, epicsEnabled} = vi.hoisted(() => ({
 	currentProject: {value: null as ProjectResponse | null},
+	epicsEnabled: {value: false},
 }))
 
 vi.mock('@/composables/useCurrentProject', () => ({
 	useCurrentProject: () => ({currentProject}),
+}))
+
+vi.mock('@/composables/useEpicsEnabled', () => ({
+	useEpicsEnabled: () => epicsEnabled,
 }))
 
 vi.mock('@/stores/viewFilters', () => ({
@@ -21,6 +26,11 @@ vi.mock('vue-i18n', async importOriginal => ({
 }))
 
 vi.mock('@/composables/useTitle', () => ({useTitle: () => {}}))
+
+vi.mock('vue-router', async importOriginal => ({
+	...await importOriginal<typeof import('vue-router')>(),
+	useRoute: () => ({query: {}}),
+}))
 
 import ProjectWrapper from './ProjectWrapper.vue'
 
@@ -66,5 +76,15 @@ describe('ProjectWrapper', () => {
 		const wrapper = mountWrapper(1)
 
 		expect(wrapper.find('.switch-view').exists()).toBe(true)
+	})
+
+	it('shows the epics toggle only when the user turned epics on', () => {
+		currentProject.value = {id: 1, title: 'Test', views: []} as unknown as ProjectResponse
+
+		epicsEnabled.value = false
+		expect(mountWrapper(1).find('.epics-toggle').exists()).toBe(false)
+
+		epicsEnabled.value = true
+		expect(mountWrapper(1).find('.epics-toggle').exists()).toBe(true)
 	})
 })

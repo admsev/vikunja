@@ -156,6 +156,9 @@ func parseFilterFromExpression(f fexpr.ExprGroup, loc *time.Location, budget *bu
 	if filter.field == "project" {
 		filter.field = "project_id"
 	}
+	if filter.field == taskPropertyEpic {
+		filter.field = taskPropertyEpicID
+	}
 
 	err = validateTaskField(filter.field)
 	if err != nil {

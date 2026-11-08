@@ -269,6 +269,14 @@ func (b *TaskBucket) Update(s *xorm.Session, a web.Auth) (err error) {
 	if err = lockTaskInView(s, a, view, b.TaskID); err != nil {
 		return err
 	}
+	// Epics stay off boards; internal callers place tasks through updateTaskBucket directly.
+	task, err := GetTaskByIDSimple(s, b.TaskID)
+	if err != nil {
+		return err
+	}
+	if task.IsEpic {
+		return ErrEpicCannotBeInBucket{TaskID: task.ID}
+	}
 
 	err = updateTaskBucket(s, a, b)
 	if err != nil {

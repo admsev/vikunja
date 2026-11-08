@@ -70,6 +70,14 @@
 					</TaskGlanceTooltip>
 				</span>
 
+				<EpicChip
+					v-if="!hideEpic && task.epic_id"
+					class="mis-2"
+					:epic-id="task.epic_id"
+					:project-id="task.project_id ?? 0"
+					:filter-on-click="!showProject"
+				/>
+
 				<Labels
 					v-if="(task.labels?.length ?? 0) > 0"
 					class="labels mis-2 mie-1"
@@ -224,6 +232,7 @@ import type {Task as ITask} from '@/client/generated'
 
 import PriorityLabel from '@/components/tasks/partials/PriorityLabel.vue'
 import Labels from '@/components/tasks/partials/Labels.vue'
+import EpicChip from '@/components/epics/EpicChip.vue'
 import TaskGlanceTooltip from '@/components/tasks/partials/TaskGlanceTooltip.vue'
 import DeferTask from '@/components/tasks/partials/DeferTask.vue'
 import OverdueIndicator from '@/components/tasks/partials/OverdueIndicator.vue'
@@ -258,7 +267,10 @@ const props = withDefaults(defineProps<{
 	disabled?: boolean,
 	canMarkAsDone?: boolean,
 	allTasks?: ITask[],
+	// Set when the surrounding list is already grouped by epic.
+	hideEpic?: boolean,
 }>(), {
+	hideEpic: false,
 	isArchived: false,
 	showProject: false,
 	disabled: false,

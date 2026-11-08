@@ -974,6 +974,62 @@ func (err ErrTaskIsNotInTrash) HTTPError() web.HTTPError {
 	}
 }
 
+// ErrInvalidTaskEpic represents an error where a task cannot be assigned to an epic.
+type ErrInvalidTaskEpic struct {
+	TaskID int64
+	EpicID int64
+	Reason string
+}
+
+// IsErrInvalidTaskEpic checks if an error is ErrInvalidTaskEpic.
+func IsErrInvalidTaskEpic(err error) bool {
+	_, ok := err.(ErrInvalidTaskEpic)
+	return ok
+}
+
+func (err ErrInvalidTaskEpic) Error() string {
+	return fmt.Sprintf("Invalid epic for task [TaskID: %d, EpicID: %d]: %s", err.TaskID, err.EpicID, err.Reason)
+}
+
+// ErrCodeInvalidTaskEpic holds the unique world-error code of this error
+const ErrCodeInvalidTaskEpic = 4043
+
+// HTTPError holds the http error description
+func (err ErrInvalidTaskEpic) HTTPError() web.HTTPError {
+	return web.HTTPError{
+		HTTPCode: http.StatusBadRequest,
+		Code:     ErrCodeInvalidTaskEpic,
+		Message:  "This task cannot be assigned to that epic: " + err.Reason + ".",
+	}
+}
+
+// ErrEpicCannotBeInBucket represents an error where an epic is put into a kanban bucket.
+type ErrEpicCannotBeInBucket struct {
+	TaskID int64
+}
+
+// IsErrEpicCannotBeInBucket checks if an error is ErrEpicCannotBeInBucket.
+func IsErrEpicCannotBeInBucket(err error) bool {
+	_, ok := err.(ErrEpicCannotBeInBucket)
+	return ok
+}
+
+func (err ErrEpicCannotBeInBucket) Error() string {
+	return fmt.Sprintf("Epics cannot be put into a bucket [TaskID: %d]", err.TaskID)
+}
+
+// ErrCodeEpicCannotBeInBucket holds the unique world-error code of this error
+const ErrCodeEpicCannotBeInBucket = 4044
+
+// HTTPError holds the http error description
+func (err ErrEpicCannotBeInBucket) HTTPError() web.HTTPError {
+	return web.HTTPError{
+		HTTPCode: http.StatusBadRequest,
+		Code:     ErrCodeEpicCannotBeInBucket,
+		Message:  "Epics are not shown on boards and cannot be put into a bucket.",
+	}
+}
+
 // ErrBulkTasksMustBeInSameProject represents a "ErrBulkTasksMustBeInSameProject" kind of error.
 type ErrBulkTasksMustBeInSameProject struct {
 	ShouldBeID int64

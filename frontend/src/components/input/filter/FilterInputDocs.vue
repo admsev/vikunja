@@ -2,8 +2,10 @@
 import {ref} from 'vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import Expandable from '@/components/base/Expandable.vue'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 
 const showDocs = ref(false)
+const epicsEnabled = useEpicsEnabled()
 </script>
 
 <template>
@@ -23,6 +25,9 @@ const showDocs = ref(false)
 			<li><code>done</code>: {{ $t('filters.query.help.fields.done') }}</li>
 			<li><code>priority</code>: {{ $t('filters.query.help.fields.priority') }}</li>
 			<li><code>percentDone</code>: {{ $t('filters.query.help.fields.percentDone') }}</li>
+			<li v-if="epicsEnabled">
+				<code>epic</code>: {{ $t('filters.query.help.fields.epic') }}
+			</li>
 			<li><code>dueDate</code>: {{ $t('filters.query.help.fields.dueDate') }}</li>
 			<li><code>startDate</code>: {{ $t('filters.query.help.fields.startDate') }}</li>
 			<li><code>endDate</code>: {{ $t('filters.query.help.fields.endDate') }}</li>

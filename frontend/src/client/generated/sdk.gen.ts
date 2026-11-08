@@ -1800,7 +1800,7 @@ export const tasksBulkCreate = <ThrowOnError extends boolean = true>(options: Op
 /**
  * Get a task by its project index
  *
- * Returns a single task addressed by its per-project index. Historical addresses redirect. The {project} segment accepts either a numeric project id or a textual project identifier (e.g. "PROJ"); a value made solely of digits is always treated as an id. Embed extra, more expensive data in each task. Repeatable. One of: subtasks, buckets, reactions, comments, comment_count, time_entries_count, is_unread. Expanding can return more tasks than the page limit (subtasks) and inflate the response.
+ * Returns a single task addressed by its per-project index. Historical addresses redirect. The {project} segment accepts either a numeric project id or a textual project identifier (e.g. "PROJ"); a value made solely of digits is always treated as an id. Embed extra, more expensive data in each task. Repeatable. One of: subtasks, buckets, reactions, comments, comment_count, time_entries_count, is_unread, epic (summary of the task's epic), epic_progress (done/total counts on epics). Expanding can return more tasks than the page limit (subtasks) and inflate the response.
  */
 export const tasksReadByIndex = <ThrowOnError extends boolean = true>(options: Options<TasksReadByIndexData, ThrowOnError>): RequestResult<TasksReadByIndexResponses, TasksReadByIndexErrors, ThrowOnError> => (options.client ?? client).get<TasksReadByIndexResponses, TasksReadByIndexErrors, ThrowOnError>({
     security: [{
@@ -2235,7 +2235,7 @@ export const bucketsUpdate = <ThrowOnError extends boolean = true>(options: Opti
 /**
  * Place a task in a kanban bucket
  *
- * Moves a task into the given bucket of a project's kanban view. Requires write access to the project. Idempotent: re-sending the same bucket is a no-op. Side effects: moving a task into the view's done bucket marks it done (and out of it un-marks it); a repeating task moved into the done bucket is reopened and routed back to the default bucket instead. Moving a task into a bucket that is already at its task limit is rejected with 412. A bucket that does not resolve under the project and view in the path is rejected with 404.
+ * Moves a task into the given bucket of a project's kanban view. Requires write access to the project. Idempotent: re-sending the same bucket is a no-op. Side effects: moving a task into the view's done bucket marks it done (and out of it un-marks it); a repeating task moved into the done bucket is reopened and routed back to the default bucket instead. Moving a task into a bucket that is already at its task limit is rejected with 412. A bucket that does not resolve under the project and view in the path is rejected with 404. Epics are not shown on boards and are rejected with 400.
  */
 export const taskBucketUpdate = <ThrowOnError extends boolean = true>(options: Options<TaskBucketUpdateData, ThrowOnError>): RequestResult<TaskBucketUpdateResponses, TaskBucketUpdateErrors, ThrowOnError> => (options.client ?? client).put<TaskBucketUpdateResponses, TaskBucketUpdateErrors, ThrowOnError>({
     security: [{
@@ -2583,7 +2583,7 @@ export const tasksDelete = <ThrowOnError extends boolean = true>(options: Option
 /**
  * Get a task
  *
- * Returns a single task by its numeric id. Sends an ETag; pass it as If-None-Match on a later read to get a 304 Not Modified. Embed extra, more expensive data in each task. Repeatable. One of: subtasks, buckets, reactions, comments, comment_count, time_entries_count, is_unread. Expanding can return more tasks than the page limit (subtasks) and inflate the response.
+ * Returns a single task by its numeric id. Sends an ETag; pass it as If-None-Match on a later read to get a 304 Not Modified. Embed extra, more expensive data in each task. Repeatable. One of: subtasks, buckets, reactions, comments, comment_count, time_entries_count, is_unread, epic (summary of the task's epic), epic_progress (done/total counts on epics). Expanding can return more tasks than the page limit (subtasks) and inflate the response.
  */
 export const tasksRead = <ThrowOnError extends boolean = true>(options: Options<TasksReadData, ThrowOnError>): RequestResult<TasksReadResponses, TasksReadErrors, ThrowOnError> => (options.client ?? client).get<TasksReadResponses, TasksReadErrors, ThrowOnError>({
     security: [{
@@ -2958,7 +2958,7 @@ export const taskCommentsUpdate = <ThrowOnError extends boolean = true>(options:
 /**
  * Duplicate a task
  *
- * Copies a task — including its labels, assignees, attachments and reminders — into the same project, and records a "copied from" relation back to the original. The authenticated user needs read access to the source task and write access to its project. Returns the newly created duplicate.
+ * Copies a task — including its labels, assignees, attachments, reminders and epic — into the same project, and records a "copied from" relation back to the original. The authenticated user needs read access to the source task and write access to its project. Returns the newly created duplicate.
  */
 export const tasksDuplicate = <ThrowOnError extends boolean = true>(options: Options<TasksDuplicateData, ThrowOnError>): RequestResult<TasksDuplicateResponses, TasksDuplicateErrors, ThrowOnError> => (options.client ?? client).post<TasksDuplicateResponses, TasksDuplicateErrors, ThrowOnError>({
     security: [{

@@ -370,11 +370,15 @@ func duplicateTasks(s *xorm.Session, doer web.Auth, ld *ProjectDuplicate) (newTa
 	// It is used to map old task items to new ones.
 	newTaskIDs = make(map[int64]int64, len(tasks))
 	oldTaskIDs := make([]int64, 0, len(tasks))
+	// Epics are created in the same batch, so their new ids are only known afterwards.
+	oldEpicIDs := make([]int64, 0, len(tasks))
 	for _, t := range tasks {
 		oldTaskIDs = append(oldTaskIDs, t.ID)
+		oldEpicIDs = append(oldEpicIDs, t.EpicID)
 		t.ID = 0
 		t.ProjectID = ld.Project.ID
 		t.UID = ""
+		t.EpicID = 0
 	}
 
 	err = createTasks(s, ld.Project.ID, tasks, doer, false, false, true)
@@ -383,6 +387,9 @@ func duplicateTasks(s *xorm.Session, doer web.Auth, ld *ProjectDuplicate) (newTa
 	}
 	for i, t := range tasks {
 		newTaskIDs[oldTaskIDs[i]] = t.ID
+	}
+	if err := relinkDuplicatedEpics(s, tasks, oldEpicIDs, newTaskIDs); err != nil {
+		return nil, err
 	}
 
 	log.Debugf("Duplicated all tasks from project %d into %d", ld.ProjectID, ld.Project.ID)
@@ -513,4 +520,24 @@ func duplicateTasks(s *xorm.Session, doer web.Auth, ld *ProjectDuplicate) (newTa
 	log.Debugf("Duplicated all task relations from project %d into %d", ld.ProjectID, ld.Project.ID)
 
 	return
+}
+
+// relinkDuplicatedEpics points duplicated tasks at the duplicates of their epics.
+func relinkDuplicatedEpics(s *xorm.Session, tasks []*Task, oldEpicIDs []int64, newTaskIDs map[int64]int64) error {
+	tasksByEpic := map[int64][]int64{}
+	for i, t := range tasks {
+		epicID, has := newTaskIDs[oldEpicIDs[i]]
+		if !has {
+			continue
+		}
+		t.EpicID = epicID
+		tasksByEpic[epicID] = append(tasksByEpic[epicID], t.ID)
+	}
+	for epicID, taskIDs := range tasksByEpic {
+		_, err := s.In("id", taskIDs).Cols(taskPropertyEpicID).NoAutoTime().Update(&Task{EpicID: epicID})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

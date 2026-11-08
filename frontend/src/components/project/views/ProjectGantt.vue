@@ -34,12 +34,24 @@
 							</XButton>
 						</div>
 					</div>
-					<FancyCheckbox
-						v-model="filters.showTasksWithoutDates"
-						is-block
-					>
-						{{ $t('task.show.noDates') }}
-					</FancyCheckbox>
+					<div class="gantt-options__toggles">
+						<XButton
+							v-if="epicIds.length > 0"
+							variant="secondary"
+							:wrap="false"
+							:icon="allEpicsCollapsed ? 'chevron-down' : 'chevron-up'"
+							:aria-pressed="allEpicsCollapsed"
+							@click="toggleAllEpics"
+						>
+							{{ allEpicsCollapsed ? $t('project.gantt.expandEpics') : $t('project.gantt.collapseEpics') }}
+						</XButton>
+						<FancyCheckbox
+							v-model="filters.showTasksWithoutDates"
+							is-block
+						>
+							{{ $t('task.show.noDates') }}
+						</FancyCheckbox>
+					</div>
 				</div>
 			</Card>
 
@@ -50,6 +62,7 @@
 					class="has-overflow"
 				>
 					<GanttChart
+						v-model:collapsed-task-ids="collapsedTaskIds"
 						:filters="filters"
 						:tasks="tasks"
 						:is-loading="isLoading"
@@ -68,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import {computed, toRefs} from 'vue'
+import {computed, ref, toRefs} from 'vue'
 import type {RouteLocationNormalized} from 'vue-router'
 
 import {useCurrentProject} from '@/composables/useCurrentProject'
@@ -110,6 +123,20 @@ const {
 	addTask,
 	updateTask,
 } = useGanttFilters(route, projectId, viewId)
+
+const collapsedTaskIds = ref(new Set<number>())
+// Empty while epics are turned off, which hides the toggle.
+const epicIds = computed(() => [...tasks.value.values()].filter(task => task.is_epic).map(task => task.id))
+const allEpicsCollapsed = computed(() => epicIds.value.length > 0 && epicIds.value.every(id => collapsedTaskIds.value.has(id)))
+
+function toggleAllEpics() {
+	const next = new Set(collapsedTaskIds.value)
+	for (const id of epicIds.value) {
+		if (allEpicsCollapsed.value) next.delete(id)
+		else next.add(id)
+	}
+	collapsedTaskIds.value = next
+}
 
 const DEFAULT_DATE_RANGE_DAYS = 7
 
@@ -157,6 +184,13 @@ const dateRange = computed({
 	@media screen and (max-width: $tablet) {
 		flex-direction: column;
 	}
+}
+
+.gantt-options__toggles {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	white-space: nowrap;
 }
 
 :global(.link-share-view:not(.has-background)) .gantt-options {

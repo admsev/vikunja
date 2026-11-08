@@ -56,6 +56,13 @@
 				</span>
 			</div>
 			
+			<EpicChip
+				v-if="!hideEpic && task.epic_id"
+				class="kanban-card__epic"
+				:epic-id="task.epic_id"
+				:project-id="task.project_id"
+			/>
+
 			<h3>
 				<RouterLink
 					:to="{ name: 'task.detail', params: {id: task.id} }"
@@ -137,6 +144,7 @@ import OverdueIndicator from '@/components/tasks/partials/OverdueIndicator.vue'
 import ProgressBar from '@/components/misc/ProgressBar.vue'
 import Done from '@/components/misc/Done.vue'
 import Labels from '@/components/tasks/partials/Labels.vue'
+import EpicChip from '@/components/epics/EpicChip.vue'
 import ChecklistSummary from './ChecklistSummary.vue'
 import CommentCount from './CommentCount.vue'
 
@@ -160,6 +168,8 @@ import {TASK_REPEAT_MODES} from '@/types/IRepeatMode'
 const props = defineProps<{
 	task: TaskResponse,
 	projectId: number,
+	// Set when the board is already split into epic swimlanes.
+	hideEpic?: boolean,
 }>()
 
 const emit = defineEmits<{
@@ -474,6 +484,10 @@ $task-background: var(--white);
 			color: hsl(var(--danger-h), var(--danger-s), 68%);
 		}
 	}
+}
+
+.kanban-card__epic {
+	margin-block-start: .35rem;
 }
 
 .kanban-card__done {

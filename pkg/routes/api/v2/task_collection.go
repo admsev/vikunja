@@ -55,13 +55,14 @@ type bucketsWithTasksBody struct {
 // taskListViewInput is shared by both view-scoped endpoints.
 type TaskListQueryParams struct {
 	ListParams
-	Filter             string   `query:"filter" doc:"Filter query to match tasks by, e.g. \"done = false && due_date < now+7d\". Combine conditions with && or || (not and/or) and group them with parentheses. Operators: =, !=, >, >=, <, <=, like, in, not in. See https://vikunja.io/docs/filters."`
-	FilterTimezone     string   `query:"filter_timezone" doc:"Timezone used to resolve relative date filters like \"now\"."`
-	FilterIncludeNulls bool     `query:"filter_include_nulls" doc:"If true, also include tasks whose filtered field is null."`
-	SortBy             []string `query:"sort_by,explode" doc:"Fields to sort by (e.g. done, priority). Repeatable; pair positionally with order_by. The special value relevance sorts by search relevance (most relevant first, requires s; ignored when the database cannot score the query)."`
-	OrderBy            []string `query:"order_by,explode" doc:"Sort order per sort_by field, asc or desc. Repeatable; defaults to asc."`
-	Expand             []string `query:"expand,explode" enum:"subtasks,buckets,reactions,comments,comment_count,time_entries_count,is_unread" doc:"Embed extra, more expensive data per task. Repeatable."`
-	Format             string   `query:"format" enum:"html,markdown" doc:"How rich-text fields are exchanged. See the API description."`
+	Filter             string           `query:"filter" doc:"Filter query to match tasks by, e.g. \"done = false && due_date < now+7d\". Combine conditions with && or || (not and/or) and group them with parentheses. Operators: =, !=, >, >=, <, <=, like, in, not in. See https://vikunja.io/docs/filters."`
+	FilterTimezone     string           `query:"filter_timezone" doc:"Timezone used to resolve relative date filters like \"now\"."`
+	FilterIncludeNulls bool             `query:"filter_include_nulls" doc:"If true, also include tasks whose filtered field is null."`
+	SortBy             []string         `query:"sort_by,explode" doc:"Fields to sort by (e.g. done, priority). Repeatable; pair positionally with order_by. The special value relevance sorts by search relevance (most relevant first, requires s; ignored when the database cannot score the query)."`
+	OrderBy            []string         `query:"order_by,explode" doc:"Sort order per sort_by field, asc or desc. Repeatable; defaults to asc."`
+	Expand             []string         `query:"expand,explode" enum:"subtasks,buckets,reactions,comments,comment_count,time_entries_count,is_unread,epic,epic_progress" doc:"Embed extra, more expensive data per task. Repeatable."`
+	Format             string           `query:"format" enum:"html,markdown" doc:"How rich-text fields are exchanged. See the API description."`
+	Epics              models.EpicScope `query:"epics" enum:"include,exclude,only" doc:"Whether epics are part of the result: include (default) returns tasks and epics, exclude only regular tasks, only just epics. Filter by a task's epic with \"epic = <id>\" (0 for tasks without an epic)."`
 }
 
 type taskListAllInput struct {
@@ -89,18 +90,19 @@ type taskListFilters struct {
 	SortBy             []string
 	OrderBy            []string
 	Expand             []string
+	Epics              models.EpicScope
 }
 
 func (in taskListAllInput) filters() taskListFilters {
-	return taskListFilters{in.Q, in.Filter, in.FilterTimezone, in.FilterIncludeNulls, in.SortBy, in.OrderBy, in.Expand}
+	return taskListFilters{in.Q, in.Filter, in.FilterTimezone, in.FilterIncludeNulls, in.SortBy, in.OrderBy, in.Expand, in.Epics}
 }
 
 func (in taskListProjectInput) filters() taskListFilters {
-	return taskListFilters{in.Q, in.Filter, in.FilterTimezone, in.FilterIncludeNulls, in.SortBy, in.OrderBy, in.Expand}
+	return taskListFilters{in.Q, in.Filter, in.FilterTimezone, in.FilterIncludeNulls, in.SortBy, in.OrderBy, in.Expand, in.Epics}
 }
 
 func (in taskListViewInput) filters() taskListFilters {
-	return taskListFilters{in.Q, in.Filter, in.FilterTimezone, in.FilterIncludeNulls, in.SortBy, in.OrderBy, in.Expand}
+	return taskListFilters{in.Q, in.Filter, in.FilterTimezone, in.FilterIncludeNulls, in.SortBy, in.OrderBy, in.Expand, in.Epics}
 }
 
 // collection turns the bound query into a TaskCollection. The search term
@@ -116,6 +118,7 @@ func (f taskListFilters) collection(projectID, viewID int64, forceFlat bool) (*m
 		ProjectID:          projectID,
 		ProjectViewID:      viewID,
 		Filter:             f.Filter,
+		EpicScope:          f.Epics,
 		FilterTimezone:     f.FilterTimezone,
 		FilterIncludeNulls: f.FilterIncludeNulls,
 		SortBy:             f.SortBy,

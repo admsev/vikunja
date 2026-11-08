@@ -6,6 +6,11 @@
 		:view-id
 	>
 		<template #header>
+			<EpicGroupToggle
+				v-if="epicsEnabled && projectId > 0"
+				v-model="groupByEpic"
+				:label="$t('epic.group.byEpic')"
+			/>
 			<div class="filter-container">
 				<SortPopup
 					v-model="sortByParam"
@@ -47,8 +52,20 @@
 						</ButtonLink>
 					</Nothing>
 
+					<EpicGroupedTaskList
+						v-if="groupByEpic && tasks.length > 0"
+						:tasks="tasks"
+						:all-tasks="allTasks"
+						:project-id="projectId"
+						:view-id="viewId"
+						:can-drag="canDragTasks"
+						:reorderable="isPositionSorting"
+						:can-mark-as-done="canWrite || isPseudoProject"
+						@taskUpdated="updateTasks"
+					/>
+
 					<draggable
-						v-if="tasks && tasks.length > 0"
+						v-else-if="tasks && tasks.length > 0"
 						v-model="tasks"
 						:group="{name: 'tasks', put: false}"
 						:disabled="!canDragTasks || !isPositionSorting"
@@ -112,9 +129,14 @@ import FilterPopup from '@/components/project/partials/FilterPopup.vue'
 import Nothing from '@/components/misc/Nothing.vue'
 import Pagination from '@/components/misc/Pagination.vue'
 import SortPopup from '@/components/project/partials/SortPopup.vue'
+import EpicGroupToggle from '@/components/epics/EpicGroupToggle.vue'
+import EpicGroupedTaskList from '@/components/epics/EpicGroupedTaskList.vue'
+import {useEpicGrouping} from '@/composables/useEpicGrouping'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 
 import {useTaskList} from '@/composables/useTaskList'
 import {useTaskDragToProject} from '@/composables/useTaskDragToProject'
+import {useTaskDropToEpic} from '@/composables/useTaskDropToEpic'
 import {useCurrentProject} from '@/composables/useCurrentProject'
 import {shouldShowTaskInListView} from '@/composables/useTaskListFiltering'
 import {PERMISSIONS as Permissions} from '@/constants/permissions'
@@ -173,9 +195,13 @@ watch([projectId, () => props.viewId], () => { dragTasks.value = null })
 
 const isPositionSorting = computed(() => 'position' in sortByParam.value)
 
+const epicsEnabled = useEpicsEnabled()
+const groupByEpic = useEpicGrouping(projectId, () => props.viewId)
+
 const baseStore = useBaseStore()
 const {setDraggedTask} = useTaskDragState()
 const {handleTaskDropToProject} = useTaskDragToProject()
+const {handleTaskDropToEpic} = useTaskDropToEpic()
 const {currentProject: project} = useCurrentProject()
 
 const canWrite = computed(() => {
@@ -227,6 +253,11 @@ function handleDragStart(e: { item: HTMLElement }) {
 async function saveTaskPosition(e: { originalEvent?: MouseEvent, to: HTMLElement, from: HTMLElement, item: HTMLElement, newIndex: number }) {
 	drag.value = false
 	try {
+		const epicDrop = handleTaskDropToEpic(e)
+		if (epicDrop) {
+			await epicDrop
+			return
+		}
 
 		// Check if dropped on a sidebar project
 		const {moved} = await handleTaskDropToProject(e, (task) => {

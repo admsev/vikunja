@@ -8,6 +8,8 @@ export interface GanttTaskTreeNode {
 	indentLevel: number
 	isParent: boolean
 	childIds: number[]
+	// The rows this task is shown below, so collapsing one of them hides it.
+	parentIds: number[]
 	derivedStartDate: Date | null
 	derivedEndDate: Date | null
 	hasDerivedDates: boolean
@@ -38,6 +40,16 @@ export function buildGanttTaskTree(tasks: Map<number, TaskResponse>): GanttTaskT
 				hasParentInView.add(taskId)
 			}
 		}
+	}
+
+	// Tasks of an epic that is part of the view are shown below it.
+	for (const [taskId, task] of tasks) {
+		if (hasParentInView.has(taskId)) continue
+		const epicId = loadedEpicId(task, tasks)
+		if (epicId === null) continue
+		const siblings = childrenMap.get(epicId) ?? []
+		if (!siblings.includes(taskId)) childrenMap.set(epicId, [...siblings, taskId])
+		hasParentInView.add(taskId)
 	}
 
 	// Step 2: Find root tasks (no parent in the current view)
@@ -81,6 +93,7 @@ export function buildGanttTaskTree(tasks: Map<number, TaskResponse>): GanttTaskT
 			indentLevel: clampedLevel,
 			isParent,
 			childIds,
+			parentIds: parentIdsInView(task, tasks),
 			derivedStartDate,
 			derivedEndDate,
 			hasDerivedDates,
@@ -104,6 +117,7 @@ export function buildGanttTaskTree(tasks: Map<number, TaskResponse>): GanttTaskT
 				indentLevel: 0,
 				isParent: false,
 				childIds: [],
+				parentIds: parentIdsInView(task, tasks),
 				derivedStartDate: null,
 				derivedEndDate: null,
 				hasDerivedDates: false,
@@ -112,6 +126,19 @@ export function buildGanttTaskTree(tasks: Map<number, TaskResponse>): GanttTaskT
 	}
 
 	return result
+}
+
+function loadedEpicId(task: TaskResponse, tasks: Map<number, TaskResponse>): number | null {
+	const epicId = task.epic_id ?? 0
+	return epicId !== 0 && epicId !== task.id && tasks.has(epicId) ? epicId : null
+}
+
+// A task sits below its subtask parents in the chart, or else below its epic.
+function parentIdsInView(task: TaskResponse, tasks: Map<number, TaskResponse>): number[] {
+	const parentIds = (task.related_tasks.parenttask ?? []).map(parent => parent.id).filter(id => tasks.has(id))
+	if (parentIds.length > 0) return parentIds
+	const epicId = loadedEpicId(task, tasks)
+	return epicId === null ? [] : [epicId]
 }
 
 interface DateRange {

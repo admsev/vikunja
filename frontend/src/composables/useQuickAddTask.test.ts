@@ -13,8 +13,11 @@ const sdk = vi.hoisted(() => ({
 	taskAssigneesCreate: vi.fn(),
 	projectsUsersSearch: vi.fn(),
 	projectsList: vi.fn(),
+	projectTasksList: vi.fn(),
 }))
 vi.mock('@/client/generated', () => sdk)
+const epicsEnabled = vi.hoisted(() => ({value: false}))
+vi.mock('@/composables/useEpicsEnabled', () => ({useEpicsEnabled: () => epicsEnabled}))
 vi.mock('@/message', () => ({
 	error: vi.fn(),
 	success: vi.fn(),
@@ -59,6 +62,35 @@ describe('useQuickAddTask', () => {
 		expect(sdk.tasksCreate).toHaveBeenCalledWith(expect.objectContaining({
 			body: expect.objectContaining({title: 'Buy milk'}),
 		}))
+	})
+
+	describe('epics', () => {
+		beforeEach(() => {
+			sdk.projectTasksList.mockResolvedValue({data: {items: [{id: 9, title: 'Launch', is_epic: true, project_id: 1}], total_pages: 1}})
+			sdk.tasksCreate.mockResolvedValue({data: {id: 7, title: 'Buy milk', project_id: 1}})
+		})
+
+		it('puts the task into the epic named with ~', async () => {
+			epicsEnabled.value = true
+
+			await quickAdd().createNewTask({title: 'Buy milk ~Launch', project_id: 1})
+
+			expect(sdk.tasksCreate).toHaveBeenCalledWith(expect.objectContaining({
+				body: expect.objectContaining({title: 'Buy milk', epic_id: 9}),
+			}))
+		})
+
+		it('keeps ~ as plain text while epics are off', async () => {
+			epicsEnabled.value = false
+
+			await quickAdd().createNewTask({title: 'Buy milk ~Launch', project_id: 1})
+
+			expect(sdk.projectTasksList).not.toHaveBeenCalled()
+			expect(sdk.tasksCreate).toHaveBeenCalledWith(expect.objectContaining({
+				body: expect.not.objectContaining({epic_id: expect.anything()}),
+			}))
+			expect(sdk.tasksCreate.mock.calls[0][0].body.title).toBe('Buy milk ~Launch')
+		})
 	})
 
 	it('keeps the created task when its label cannot be created', async () => {
