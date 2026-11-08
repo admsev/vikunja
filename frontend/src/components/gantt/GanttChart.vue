@@ -37,11 +37,13 @@
 							v-for="(band, bandIndex) in parentGroupBands"
 							:key="`band-${bandIndex}`"
 							class="gantt-group-band"
+							:class="{'is-epic': band.epicColor}"
 							:style="{
 								top: `${band.startIndex * ROW_HEIGHT}px`,
 								height: `${(band.endIndex - band.startIndex + 1) * ROW_HEIGHT}px`,
 								left: `${band.left}px`,
 								width: `${band.width}px`,
+								'--band-color': band.epicColor,
 							}"
 						/>
 						<div class="gantt-rows">
@@ -96,6 +98,7 @@ import dayjs from 'dayjs'
 import {useDayjsLanguageSync} from '@/i18n/useDayjsLanguageSync'
 
 import {getHexColor} from '@/helpers/task'
+import {getEpicColor} from '@/helpers/epicColor'
 import {buildGanttTaskTree, type GanttTaskTreeNode} from '@/helpers/ganttTaskTree'
 import {buildRelationArrows, type GanttBarPosition, type GanttArrow} from '@/helpers/ganttRelationArrows'
 
@@ -104,7 +107,7 @@ import type {TaskResponse} from '@/client/queries/tasks'
 type ITaskPartialWithId = ITask & Required<Pick<ITask, 'id'>>
 import type {DateISO} from '@/types/DateISO'
 import type {GanttFilters} from '@/views/project/helpers/useGanttFilters'
-import type {GanttBarModel, GanttBarDateType} from '@/composables/useGanttBar'
+import {getEpicBarColor, type GanttBarModel, type GanttBarDateType} from '@/composables/useGanttBar'
 
 import GanttChartBody from '@/components/gantt/GanttChartBody.vue'
 import GanttRow from '@/components/gantt/GanttRow.vue'
@@ -183,29 +186,9 @@ const ganttRows = ref<string[]>([])
 const cellsByRow = ref<Record<string, string[]>>({})
 
 // Hierarchy state
-const collapsedTaskIds = ref(new Set<number>())
+// Lifted so the view can collapse every epic at once.
+const collapsedTaskIds = defineModel<Set<number>>('collapsedTaskIds', {default: () => new Set()})
 const allNodes = ref<GanttTaskTreeNode[]>([])
-
-const visibleNodes = computed(() => {
-	const result: GanttTaskTreeNode[] = []
-	const hiddenParents = new Set<number>()
-
-	for (const node of allNodes.value) {
-		const parents = node.task.related_tasks.parenttask ?? []
-		const isHidden = parents.some(p =>
-			collapsedTaskIds.value.has(p.id) || hiddenParents.has(p.id),
-		)
-
-		if (isHidden) {
-			hiddenParents.add(node.task.id)
-			continue
-		}
-
-		result.push(node)
-	}
-
-	return result
-})
 
 // Map hidden tasks to their visible ancestor for arrow re-routing
 const hiddenToAncestor = computed(() => {
@@ -213,18 +196,16 @@ const hiddenToAncestor = computed(() => {
 	const hiddenParents = new Set<number>()
 
 	for (const node of allNodes.value) {
-		const parents = node.task.related_tasks.parenttask ?? []
-		const collapsedParent = parents.find(p =>
-			collapsedTaskIds.value.has(p.id),
-		)
+		const {parentIds} = node
+		const collapsedParent = parentIds.find(id => collapsedTaskIds.value.has(id))
 
-		if (collapsedParent && tasks.value.has(collapsedParent.id)) {
-			map.set(node.task.id, collapsedParent.id)
+		if (collapsedParent !== undefined) {
+			map.set(node.task.id, collapsedParent)
 			hiddenParents.add(node.task.id)
 		} else {
-			const hiddenAncestor = parents.find(p => hiddenParents.has(p.id))
-			if (hiddenAncestor) {
-				const ancestorTarget = map.get(hiddenAncestor.id) ?? hiddenAncestor.id
+			const hiddenAncestor = parentIds.find(id => hiddenParents.has(id))
+			if (hiddenAncestor !== undefined) {
+				const ancestorTarget = map.get(hiddenAncestor) ?? hiddenAncestor
 				map.set(node.task.id, ancestorTarget)
 				hiddenParents.add(node.task.id)
 			}
@@ -233,6 +214,8 @@ const hiddenToAncestor = computed(() => {
 
 	return map
 })
+
+const visibleNodes = computed(() => allNodes.value.filter(node => !hiddenToAncestor.value.has(node.task.id)))
 
 function toggleCollapse(taskId: number) {
 	const newSet = new Set(collapsedTaskIds.value)
@@ -284,7 +267,7 @@ function transformTaskToGanttBar(node: GanttTaskTreeNode): GanttBarModel {
 		dateType = 'both'
 	}
 
-	const taskColor = getHexColor(t.hex_color)
+	const taskColor = t.is_epic ? getEpicColor(t.hex_color) : getHexColor(t.hex_color)
 
 	return {
 		id: String(t.id),
@@ -301,6 +284,7 @@ function transformTaskToGanttBar(node: GanttTaskTreeNode): GanttBarModel {
 			dateType,
 			isDone: t.done,
 			isParent: node.isParent,
+			isEpic: t.is_epic,
 			hasDerivedDates: node.hasDerivedDates,
 			indentLevel: node.indentLevel,
 		},
@@ -473,7 +457,7 @@ const totalHeight = computed(() => ganttRows.value.length * ROW_HEIGHT)
 const GROUP_BAND_PADDING = 12
 
 const parentGroupBands = computed(() => {
-	const bands: Array<{ startIndex: number; endIndex: number; left: number; width: number }> = []
+	const bands: Array<{ startIndex: number; endIndex: number; left: number; width: number; epicColor?: string }> = []
 	const bars = ganttBars.value
 	const positions = barPositions.value
 
@@ -512,6 +496,7 @@ const parentGroupBands = computed(() => {
 					endIndex,
 					left: minX - GROUP_BAND_PADDING,
 					width: maxX - minX + GROUP_BAND_PADDING * 2,
+					epicColor: getEpicBarColor(bar),
 				})
 			}
 		}
@@ -836,6 +821,12 @@ onUnmounted(() => {
 	border-radius: 6px;
 	pointer-events: none;
 	z-index: 1;
+
+	// An epic's tasks sit on a band in the epic's color.
+	&.is-epic {
+		background: color-mix(in srgb, var(--band-color) 8%, transparent);
+		border-color: color-mix(in srgb, var(--band-color) 24%, transparent);
+	}
 }
 
 .gantt-rows {

@@ -232,3 +232,33 @@ describe('buildGanttTaskTree', () => {
 		expect(result.map(node => [node.task.id, node.indentLevel])).toEqual([[1, 0], [2, 1], [3, 2]])
 	})
 })
+
+describe('parentIds', () => {
+	const parentIdsOf = (tasks: Map<number, TaskResponse>, id: number) =>
+		buildGanttTaskTree(tasks).find(node => node.task.id === id)!.parentIds
+
+	it('are the subtask parents in the chart before the epic', () => {
+		const tasks = new Map<number, TaskResponse>([
+			[1, makeTask(1, {is_epic: true})],
+			[2, makeTask(2)],
+			[3, makeTask(3, {epic_id: 1, related_tasks: {parenttask: [makeTask(2), makeTask(9)]}})],
+		])
+
+		expect(parentIdsOf(tasks, 3)).toEqual([2])
+	})
+
+	it('are the epic when no subtask parent is in the chart', () => {
+		const tasks = new Map<number, TaskResponse>([
+			[1, makeTask(1, {is_epic: true})],
+			[3, makeTask(3, {epic_id: 1, related_tasks: {parenttask: [makeTask(9)]}})],
+		])
+
+		expect(parentIdsOf(tasks, 3)).toEqual([1])
+	})
+
+	it('skip an epic that is not part of the chart', () => {
+		const tasks = new Map<number, TaskResponse>([[3, makeTask(3, {epic_id: 1})]])
+
+		expect(parentIdsOf(tasks, 3)).toEqual([])
+	})
+})

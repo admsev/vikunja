@@ -176,6 +176,46 @@ test.describe('Epics', () => {
 		expect(titles.findIndex(text => text.includes('Press release'))).toBeGreaterThan(epicRow)
 	})
 
+	test('collapses and expands an epic on the gantt chart', async ({authenticatedPage: page}) => {
+		await seedEpics()
+		await page.goto(`/projects/1/${GANTT_VIEW}?dateFrom=2026-03-01&dateTo=2026-03-31`)
+		const row = (title: string) => page.locator('.gantt-row-content').filter({hasText: title})
+		await expect(row('Press release')).toBeVisible()
+
+		await page.getByRole('button', {name: 'Collapse group: Launch plan'}).click()
+		await expect(row('Press release')).toHaveCount(0)
+		await expect(row('Launch plan')).toBeVisible()
+
+		await page.getByRole('button', {name: 'Expand group: Launch plan'}).click()
+		await expect(row('Press release')).toBeVisible()
+	})
+
+	test('collapses all epics on the gantt chart at once', async ({authenticatedPage: page}) => {
+		await seedEpics()
+		await page.goto(`/projects/1/${GANTT_VIEW}?dateFrom=2026-03-01&dateTo=2026-03-31`)
+		const row = (title: string) => page.locator('.gantt-row-content').filter({hasText: title})
+		await expect(row('Landing page')).toBeVisible()
+
+		await page.getByRole('button', {name: 'Collapse all epics'}).click()
+		await expect(row('Launch plan')).toBeVisible()
+		await expect(row('Press release')).toHaveCount(0)
+		await expect(row('Landing page')).toHaveCount(0)
+
+		await page.getByRole('button', {name: 'Expand all epics'}).click()
+		await expect(row('Press release')).toBeVisible()
+		await expect(row('Landing page')).toBeVisible()
+	})
+
+	test('draws epics in their color on the gantt chart', async ({authenticatedPage: page}) => {
+		await seedEpics()
+		await page.goto(`/projects/1/${GANTT_VIEW}?dateFrom=2026-03-01&dateTo=2026-03-31`)
+
+		const epicBar = page.locator('.gantt-row-content').filter({hasText: 'Launch plan'}).locator('.gantt-bar rect').first()
+		await expect(epicBar).toHaveAttribute('fill', '#8f5bd9')
+		const taskBar = page.locator('.gantt-row-content').filter({hasText: 'Press release'}).locator('rect.gantt-bar')
+		await expect(taskBar).not.toHaveAttribute('fill', '#8f5bd9')
+	})
+
 	test('keeps the epic when a task is duplicated', async ({authenticatedPage: page, apiContext, userToken}) => {
 		const {inEpic} = await seedEpics()
 		await page.goto(`/tasks/${inEpic[0].id}`)
