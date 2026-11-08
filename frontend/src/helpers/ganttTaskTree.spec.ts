@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {buildGanttTaskTree} from './ganttTaskTree'
+import {buildGanttTaskTree, ganttParentIds} from './ganttTaskTree'
 import type {Task as ITask} from '@/client/generated'
 import {normalizeTask, type TaskResponse} from '@/client/queries/tasks'
 
@@ -230,5 +230,35 @@ describe('buildGanttTaskTree', () => {
 		const result = buildGanttTaskTree(new Map<number, TaskResponse>([[1, epic], [2, parent], [3, child]]))
 
 		expect(result.map(node => [node.task.id, node.indentLevel])).toEqual([[1, 0], [2, 1], [3, 2]])
+	})
+})
+
+describe('ganttParentIds', () => {
+	it('returns the subtask parents in the chart before the epic', () => {
+		const task = makeTask(3, {epic_id: 1, related_tasks: {parenttask: [makeTask(2), makeTask(9)]}})
+		const tasks = new Map<number, TaskResponse>([
+			[1, makeTask(1, {is_epic: true})],
+			[2, makeTask(2)],
+			[3, task],
+		])
+
+		expect(ganttParentIds(task, tasks)).toEqual([2])
+	})
+
+	it('returns the epic when no subtask parent is in the chart', () => {
+		const task = makeTask(3, {epic_id: 1, related_tasks: {parenttask: [makeTask(9)]}})
+		const tasks = new Map<number, TaskResponse>([
+			[1, makeTask(1, {is_epic: true})],
+			[3, task],
+		])
+
+		expect(ganttParentIds(task, tasks)).toEqual([1])
+	})
+
+	it('skips an epic that is not part of the chart', () => {
+		const task = makeTask(3, {epic_id: 1})
+		const tasks = new Map<number, TaskResponse>([[3, task]])
+
+		expect(ganttParentIds(task, tasks)).toEqual([])
 	})
 })

@@ -42,8 +42,9 @@ export function buildGanttTaskTree(tasks: Map<number, TaskResponse>): GanttTaskT
 
 	// Tasks of an epic that is part of the view are shown below it.
 	for (const [taskId, task] of tasks) {
-		const epicId = task.epic_id ?? 0
-		if (epicId === 0 || epicId === taskId || !tasks.has(epicId) || hasParentInView.has(taskId)) continue
+		if (hasParentInView.has(taskId)) continue
+		const epicId = loadedEpicId(task, tasks)
+		if (epicId === null) continue
 		const siblings = childrenMap.get(epicId) ?? []
 		if (!siblings.includes(taskId)) childrenMap.set(epicId, [...siblings, taskId])
 		hasParentInView.add(taskId)
@@ -121,6 +122,22 @@ export function buildGanttTaskTree(tasks: Map<number, TaskResponse>): GanttTaskT
 	}
 
 	return result
+}
+
+function loadedEpicId(task: TaskResponse, tasks: Map<number, TaskResponse>): number | null {
+	const epicId = task.epic_id ?? 0
+	return epicId !== 0 && epicId !== task.id && tasks.has(epicId) ? epicId : null
+}
+
+/**
+ * The rows a task is shown below, so collapsing one of them hides it: its subtask parents in the
+ * chart, or else its epic when the epic is in the chart.
+ */
+export function ganttParentIds(task: TaskResponse, tasks: Map<number, TaskResponse>): number[] {
+	const parentIds = (task.related_tasks.parenttask ?? []).map(parent => parent.id).filter(id => tasks.has(id))
+	if (parentIds.length > 0) return parentIds
+	const epicId = loadedEpicId(task, tasks)
+	return epicId === null ? [] : [epicId]
 }
 
 interface DateRange {

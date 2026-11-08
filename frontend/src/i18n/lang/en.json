@@ -587,6 +587,7 @@
       "chartLabel": "Project Gantt Chart",
       "taskBarsForRow": "Task bars for row {rowId}",
       "taskBarLabel": "Task: {task}. From {startDate} to {endDate}. {dateType}. Click to edit, drag to move.",
+      "epicBarLabel": "Epic: {task}. From {startDate} to {endDate}. {dateType}. Click to edit, drag to move.",
       "scheduledDates": "Scheduled dates",
       "estimatedDates": "Estimated dates",
       "resizeStartDate": "Resize start date for task {task}",
@@ -603,6 +604,8 @@
       "partialDatesEnd": "End date only (open-ended)",
       "expandGroup": "Expand group: {task}",
       "collapseGroup": "Collapse group: {task}",
+      "collapseEpics": "Collapse all epics",
+      "expandEpics": "Expand all epics",
       "toggleRelationArrows": "Toggle relation arrows"
     },
     "table": {

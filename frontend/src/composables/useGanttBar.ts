@@ -14,6 +14,7 @@ export interface GanttBarModel {
 		isDone?: boolean
 		task?: unknown
 		isParent?: boolean
+		isEpic?: boolean
 		hasDerivedDates?: boolean
 		indentLevel?: number
 	}

@@ -159,6 +159,18 @@
 					/>
 				</clipPath>
 			</defs>
+			<!-- The clip sits on the group: on the scaled path it would be scaled too -->
+			<g
+				v-if="hasEpicIcon(bar)"
+				:clip-path="`url(#clip-${bar.id})`"
+				aria-hidden="true"
+			>
+				<path
+					:d="EPIC_ICON.path"
+					:transform="`translate(${getBarTextX(bar) - EPIC_ICON_OFFSET}, ${20 - EPIC_ICON_SIZE / 2}) scale(${EPIC_ICON.scale})`"
+					:fill="getBarTextColor(bar)"
+				/>
+			</g>
 			<text
 				:x="getBarTextX(bar)"
 				:y="24"
@@ -215,6 +227,7 @@ import {useI18n} from 'vue-i18n'
 import type {GanttBarModel} from '@/composables/useGanttBar'
 import {getTextColor, LIGHT} from '@/helpers/color/getTextColor'
 import {getNaturalDayCount} from '@/helpers/time/roundToNaturalDayBoundary'
+import {faBolt} from '@fortawesome/free-solid-svg-icons'
 
 import GanttBarPrimitive from './primitives/GanttBarPrimitive.vue'
 
@@ -337,8 +350,20 @@ const getBarTextX = computed(() => (bar: GanttBarModel) => {
 	}
 	// When the bar starts before the visible range, clamp text to the left edge
 	// so the title remains visible within the visible portion of the bar.
-	return Math.max(getBarX.value(bar) + 8, 8)
+	return Math.max(getBarX.value(bar) + 8, 8) + (hasEpicIcon(bar) ? EPIC_ICON_OFFSET : 0)
 })
+
+// Epics carry the bolt their chips use, in front of the title.
+const EPIC_ICON_SIZE = 12
+const EPIC_ICON_OFFSET = EPIC_ICON_SIZE + 4
+const EPIC_ICON = (() => {
+	const [, height, , , path] = faBolt.icon
+	return {path: Array.isArray(path) ? path.join(' ') : path, scale: EPIC_ICON_SIZE / height}
+})()
+
+function hasEpicIcon(bar: GanttBarModel) {
+	return Boolean(bar.meta?.isEpic) && bar.meta?.dateType !== 'endOnly'
+}
 
 // Diamond endpoint helpers for parent summary bars
 const DIAMOND_SIZE = 5
@@ -372,6 +397,11 @@ function isDateless(bar: GanttBarModel) {
 }
 
 function getBarFill(bar: GanttBarModel) {
+	// Epics keep their color even when their dates come from their tasks.
+	if (bar.meta?.isEpic && bar.meta.color) {
+		return bar.meta.color
+	}
+
 	// Partial dates still have "actual" dates on one side — use the task color
 	if (isPartialDate(bar)) {
 		if (bar.meta?.color) {
@@ -412,6 +442,10 @@ function getBarStrokeWidth(bar: GanttBarModel) {
 }
 
 function getBarTextColor(bar: GanttBarModel) {
+	if (bar.meta?.isEpic && bar.meta.color) {
+		return getTextColor(bar.meta.color)
+	}
+
 	if (isDateless(bar)) {
 		return 'var(--grey-800)'
 	}
@@ -439,7 +473,7 @@ function getBarAriaLabel(bar: GanttBarModel): string {
 		dateType = t('project.gantt.estimatedDates')
 	}
 
-	return t('project.gantt.taskBarLabel', {task, startDate, endDate, dateType})
+	return t(bar.meta?.isEpic ? 'project.gantt.epicBarLabel' : 'project.gantt.taskBarLabel', {task, startDate, endDate, dateType})
 }
 
 function handleBarPointerDown(bar: GanttBarModel, event: PointerEvent) {
