@@ -8,6 +8,8 @@ export interface GanttTaskTreeNode {
 	indentLevel: number
 	isParent: boolean
 	childIds: number[]
+	// The rows this task is shown below, so collapsing one of them hides it.
+	parentIds: number[]
 	derivedStartDate: Date | null
 	derivedEndDate: Date | null
 	hasDerivedDates: boolean
@@ -91,6 +93,7 @@ export function buildGanttTaskTree(tasks: Map<number, TaskResponse>): GanttTaskT
 			indentLevel: clampedLevel,
 			isParent,
 			childIds,
+			parentIds: parentIdsInView(task, tasks),
 			derivedStartDate,
 			derivedEndDate,
 			hasDerivedDates,
@@ -114,6 +117,7 @@ export function buildGanttTaskTree(tasks: Map<number, TaskResponse>): GanttTaskT
 				indentLevel: 0,
 				isParent: false,
 				childIds: [],
+				parentIds: parentIdsInView(task, tasks),
 				derivedStartDate: null,
 				derivedEndDate: null,
 				hasDerivedDates: false,
@@ -129,11 +133,8 @@ function loadedEpicId(task: TaskResponse, tasks: Map<number, TaskResponse>): num
 	return epicId !== 0 && epicId !== task.id && tasks.has(epicId) ? epicId : null
 }
 
-/**
- * The rows a task is shown below, so collapsing one of them hides it: its subtask parents in the
- * chart, or else its epic when the epic is in the chart.
- */
-export function ganttParentIds(task: TaskResponse, tasks: Map<number, TaskResponse>): number[] {
+// A task sits below its subtask parents in the chart, or else below its epic.
+function parentIdsInView(task: TaskResponse, tasks: Map<number, TaskResponse>): number[] {
 	const parentIds = (task.related_tasks.parenttask ?? []).map(parent => parent.id).filter(id => tasks.has(id))
 	if (parentIds.length > 0) return parentIds
 	const epicId = loadedEpicId(task, tasks)

@@ -99,7 +99,7 @@ import {useDayjsLanguageSync} from '@/i18n/useDayjsLanguageSync'
 
 import {getHexColor} from '@/helpers/task'
 import {getEpicColor} from '@/helpers/epicColor'
-import {buildGanttTaskTree, ganttParentIds, type GanttTaskTreeNode} from '@/helpers/ganttTaskTree'
+import {buildGanttTaskTree, type GanttTaskTreeNode} from '@/helpers/ganttTaskTree'
 import {buildRelationArrows, type GanttBarPosition, type GanttArrow} from '@/helpers/ganttRelationArrows'
 
 import type {Task as ITask} from '@/client/generated'
@@ -107,7 +107,7 @@ import type {TaskResponse} from '@/client/queries/tasks'
 type ITaskPartialWithId = ITask & Required<Pick<ITask, 'id'>>
 import type {DateISO} from '@/types/DateISO'
 import type {GanttFilters} from '@/views/project/helpers/useGanttFilters'
-import type {GanttBarModel, GanttBarDateType} from '@/composables/useGanttBar'
+import {getEpicBarColor, type GanttBarModel, type GanttBarDateType} from '@/composables/useGanttBar'
 
 import GanttChartBody from '@/components/gantt/GanttChartBody.vue'
 import GanttRow from '@/components/gantt/GanttRow.vue'
@@ -190,34 +190,13 @@ const cellsByRow = ref<Record<string, string[]>>({})
 const collapsedTaskIds = defineModel<Set<number>>('collapsedTaskIds', {default: () => new Set()})
 const allNodes = ref<GanttTaskTreeNode[]>([])
 
-const visibleNodes = computed(() => {
-	const result: GanttTaskTreeNode[] = []
-	const hiddenParents = new Set<number>()
-
-	for (const node of allNodes.value) {
-		const parentIds = ganttParentIds(node.task, tasks.value)
-		const isHidden = parentIds.some(id =>
-			collapsedTaskIds.value.has(id) || hiddenParents.has(id),
-		)
-
-		if (isHidden) {
-			hiddenParents.add(node.task.id)
-			continue
-		}
-
-		result.push(node)
-	}
-
-	return result
-})
-
 // Map hidden tasks to their visible ancestor for arrow re-routing
 const hiddenToAncestor = computed(() => {
 	const map = new Map<number, number>()
 	const hiddenParents = new Set<number>()
 
 	for (const node of allNodes.value) {
-		const parentIds = ganttParentIds(node.task, tasks.value)
+		const {parentIds} = node
 		const collapsedParent = parentIds.find(id => collapsedTaskIds.value.has(id))
 
 		if (collapsedParent !== undefined) {
@@ -235,6 +214,8 @@ const hiddenToAncestor = computed(() => {
 
 	return map
 })
+
+const visibleNodes = computed(() => allNodes.value.filter(node => !hiddenToAncestor.value.has(node.task.id)))
 
 function toggleCollapse(taskId: number) {
 	const newSet = new Set(collapsedTaskIds.value)
@@ -515,7 +496,7 @@ const parentGroupBands = computed(() => {
 					endIndex,
 					left: minX - GROUP_BAND_PADDING,
 					width: maxX - minX + GROUP_BAND_PADDING * 2,
-					epicColor: bar.meta.isEpic ? bar.meta.color : undefined,
+					epicColor: getEpicBarColor(bar),
 				})
 			}
 		}

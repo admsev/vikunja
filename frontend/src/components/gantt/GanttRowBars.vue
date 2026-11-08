@@ -167,7 +167,7 @@
 			>
 				<path
 					:d="EPIC_ICON.path"
-					:transform="`translate(${getBarTextX(bar) - EPIC_ICON_OFFSET}, ${20 - EPIC_ICON_SIZE / 2}) scale(${EPIC_ICON.scale})`"
+					:transform="`translate(${getBarTextX(bar) - EPIC_ICON_OFFSET}, ${BAR_CENTER_Y - EPIC_ICON_SIZE / 2}) scale(${EPIC_ICON.scale})`"
 					:fill="getBarTextColor(bar)"
 				/>
 			</g>
@@ -224,7 +224,7 @@ import {computed} from 'vue'
 import dayjs from 'dayjs'
 import {useI18n} from 'vue-i18n'
 
-import type {GanttBarModel} from '@/composables/useGanttBar'
+import {getEpicBarColor, type GanttBarModel} from '@/composables/useGanttBar'
 import {getTextColor, LIGHT} from '@/helpers/color/getTextColor'
 import {getNaturalDayCount} from '@/helpers/time/roundToNaturalDayBoundary'
 import {faBolt} from '@fortawesome/free-solid-svg-icons'
@@ -367,16 +367,17 @@ function hasEpicIcon(bar: GanttBarModel) {
 
 // Diamond endpoint helpers for parent summary bars
 const DIAMOND_SIZE = 5
+const BAR_CENTER_Y = 20
 
 function getLeftDiamondPoints(bar: GanttBarModel): string {
 	const x = getBarX.value(bar) - DIAMOND_SIZE
-	const cy = 20 // vertical center of the bar
+	const cy = BAR_CENTER_Y
 	return `${x},${cy} ${x + DIAMOND_SIZE},${cy - DIAMOND_SIZE} ${x + DIAMOND_SIZE * 2},${cy} ${x + DIAMOND_SIZE},${cy + DIAMOND_SIZE}`
 }
 
 function getRightDiamondPoints(bar: GanttBarModel): string {
 	const x = getBarX.value(bar) + getBarWidth.value(bar) + DIAMOND_SIZE
-	const cy = 20
+	const cy = BAR_CENTER_Y
 	return `${x - DIAMOND_SIZE * 2},${cy} ${x - DIAMOND_SIZE},${cy - DIAMOND_SIZE} ${x},${cy} ${x - DIAMOND_SIZE},${cy + DIAMOND_SIZE}`
 }
 
@@ -398,8 +399,9 @@ function isDateless(bar: GanttBarModel) {
 
 function getBarFill(bar: GanttBarModel) {
 	// Epics keep their color even when their dates come from their tasks.
-	if (bar.meta?.isEpic && bar.meta.color) {
-		return bar.meta.color
+	const epicColor = getEpicBarColor(bar)
+	if (epicColor) {
+		return epicColor
 	}
 
 	// Partial dates still have "actual" dates on one side — use the task color
@@ -442,8 +444,9 @@ function getBarStrokeWidth(bar: GanttBarModel) {
 }
 
 function getBarTextColor(bar: GanttBarModel) {
-	if (bar.meta?.isEpic && bar.meta.color) {
-		return getTextColor(bar.meta.color)
+	const epicColor = getEpicBarColor(bar)
+	if (epicColor) {
+		return getTextColor(epicColor)
 	}
 
 	if (isDateless(bar)) {

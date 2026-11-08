@@ -124,8 +124,8 @@ const {
 	updateTask,
 } = useGanttFilters(route, projectId, viewId)
 
-// Epics are only in the chart while epics are turned on, so the toggle hides itself otherwise.
 const collapsedTaskIds = ref(new Set<number>())
+// Empty while epics are turned off, which hides the toggle.
 const epicIds = computed(() => [...tasks.value.values()].filter(task => task.is_epic).map(task => task.id))
 const allEpicsCollapsed = computed(() => epicIds.value.length > 0 && epicIds.value.every(id => collapsedTaskIds.value.has(id)))
 

@@ -19,6 +19,11 @@ export interface GanttBarModel {
 		indentLevel?: number
 	}
 }
+/** The color an epic's bar is drawn in, undefined for other bars. */
+export function getEpicBarColor(bar: GanttBarModel): string | undefined {
+	return bar.meta?.isEpic ? bar.meta.color : undefined
+}
+
 export interface UseGanttBarOptions {
 	model: GanttBarModel
 	timelineStart: Date

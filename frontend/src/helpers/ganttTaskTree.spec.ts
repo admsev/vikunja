@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {buildGanttTaskTree, ganttParentIds} from './ganttTaskTree'
+import {buildGanttTaskTree} from './ganttTaskTree'
 import type {Task as ITask} from '@/client/generated'
 import {normalizeTask, type TaskResponse} from '@/client/queries/tasks'
 
@@ -233,32 +233,32 @@ describe('buildGanttTaskTree', () => {
 	})
 })
 
-describe('ganttParentIds', () => {
-	it('returns the subtask parents in the chart before the epic', () => {
-		const task = makeTask(3, {epic_id: 1, related_tasks: {parenttask: [makeTask(2), makeTask(9)]}})
+describe('parentIds', () => {
+	const parentIdsOf = (tasks: Map<number, TaskResponse>, id: number) =>
+		buildGanttTaskTree(tasks).find(node => node.task.id === id)!.parentIds
+
+	it('are the subtask parents in the chart before the epic', () => {
 		const tasks = new Map<number, TaskResponse>([
 			[1, makeTask(1, {is_epic: true})],
 			[2, makeTask(2)],
-			[3, task],
+			[3, makeTask(3, {epic_id: 1, related_tasks: {parenttask: [makeTask(2), makeTask(9)]}})],
 		])
 
-		expect(ganttParentIds(task, tasks)).toEqual([2])
+		expect(parentIdsOf(tasks, 3)).toEqual([2])
 	})
 
-	it('returns the epic when no subtask parent is in the chart', () => {
-		const task = makeTask(3, {epic_id: 1, related_tasks: {parenttask: [makeTask(9)]}})
+	it('are the epic when no subtask parent is in the chart', () => {
 		const tasks = new Map<number, TaskResponse>([
 			[1, makeTask(1, {is_epic: true})],
-			[3, task],
+			[3, makeTask(3, {epic_id: 1, related_tasks: {parenttask: [makeTask(9)]}})],
 		])
 
-		expect(ganttParentIds(task, tasks)).toEqual([1])
+		expect(parentIdsOf(tasks, 3)).toEqual([1])
 	})
 
-	it('skips an epic that is not part of the chart', () => {
-		const task = makeTask(3, {epic_id: 1})
-		const tasks = new Map<number, TaskResponse>([[3, task]])
+	it('skip an epic that is not part of the chart', () => {
+		const tasks = new Map<number, TaskResponse>([[3, makeTask(3, {epic_id: 1})]])
 
-		expect(ganttParentIds(task, tasks)).toEqual([])
+		expect(parentIdsOf(tasks, 3)).toEqual([])
 	})
 })
