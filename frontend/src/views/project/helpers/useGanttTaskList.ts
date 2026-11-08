@@ -8,6 +8,7 @@ import {useCreateTaskMutation, useUpdateTaskMutation} from '@/client/queries/tas
 import {useAuthStore} from '@/stores/auth'
 import {useEpicFilter, withEpicFilter} from '@/composables/useEpicFilter'
 import {useProjectEpics} from '@/composables/useProjectEpics'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 
 export function useGanttTaskList<F extends Filters>(
 	filters: Ref<F>,
@@ -16,6 +17,7 @@ export function useGanttTaskList<F extends Filters>(
 ) {
 	const auth = useAuthStore()
 	const {epicFilter} = useEpicFilter()
+	const epicsEnabled = useEpicsEnabled()
 	const query = useQuery(computed(() => {
 		const params = filterToApiParams(filters.value)
 		return allTasksQuery({
@@ -25,6 +27,7 @@ export function useGanttTaskList<F extends Filters>(
 				...params,
 				filter: withEpicFilter(params.filter ?? '', epicFilter.value, true),
 				filter_timezone: auth.settings.timezone,
+				...(epicsEnabled.value ? {} : {epics: 'exclude' as const}),
 			},
 		})
 	}))

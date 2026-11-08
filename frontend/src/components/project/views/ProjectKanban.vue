@@ -7,7 +7,7 @@
 	>
 		<template #header>
 			<EpicGroupToggle
-				v-if="projectId > 0"
+				v-if="epicsEnabled && projectId > 0"
 				v-model="swimlanes"
 				:label="$t('epic.group.swimlanes')"
 			/>
@@ -351,6 +351,7 @@ import FilterPopup from '@/components/project/partials/FilterPopup.vue'
 import EpicGroupToggle from '@/components/epics/EpicGroupToggle.vue'
 import KanbanSwimlanes from '@/components/epics/KanbanSwimlanes.vue'
 import {useEpicGrouping} from '@/composables/useEpicGrouping'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 import KanbanCard from '@/components/tasks/partials/KanbanCard.vue'
 import Dropdown from '@/components/misc/Dropdown.vue'
 import DropdownItem from '@/components/misc/DropdownItem.vue'
@@ -599,6 +600,7 @@ function loadNextBucketPage(id: number) {
 	})
 }
 
+const epicsEnabled = useEpicsEnabled()
 const swimlanes = useEpicGrouping(projectId, () => props.viewId)
 
 function updateTasks(bucketId: number, tasks: BucketResponse['tasks']) {

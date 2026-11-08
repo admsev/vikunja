@@ -43,7 +43,7 @@
 								{{ $t('task.attributes.priority') }}
 							</FancyCheckbox>
 							<FancyCheckbox
-								v-if="projectId > 0"
+								v-if="supportsEpics"
 								v-model="activeColumns.epic"
 							>
 								{{ $t('task.attributes.epic') }}
@@ -381,6 +381,7 @@ import User from '@/components/misc/User.vue'
 import PriorityLabel from '@/components/tasks/partials/PriorityLabel.vue'
 import Labels from '@/components/tasks/partials/Labels.vue'
 import EpicChip from '@/components/epics/EpicChip.vue'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 import TaskGlanceTooltip from '@/components/tasks/partials/TaskGlanceTooltip.vue'
 import DateTableCell from '@/components/tasks/partials/DateTableCell.vue'
 import CommentCount from '@/components/tasks/partials/CommentCount.vue'
@@ -446,8 +447,10 @@ const SORT_BY_DEFAULT: SortBy = {
 }
 
 const activeColumns = useStorage('tableViewColumns', {...ACTIVE_COLUMNS_DEFAULT}, undefined, {mergeDefaults: true})
+const epicsEnabled = useEpicsEnabled()
 // Epics are per project, so saved filters and favorites have no epic column.
-const showEpicColumn = computed(() => activeColumns.value.epic && props.projectId > 0)
+const supportsEpics = computed(() => epicsEnabled.value && props.projectId > 0)
+const showEpicColumn = computed(() => activeColumns.value.epic && supportsEpics.value)
 const sortBy = useStorage<SortBy>('tableViewSortBy', {...SORT_BY_DEFAULT})
 
 const taskList = useTaskList(

@@ -5,6 +5,7 @@ import {TaskFactory} from '../../factories/task'
 import {BucketFactory} from '../../factories/bucket'
 import {TaskBucketFactory} from '../../factories/task_buckets'
 import {createDefaultViews} from '../project/prepareProjects'
+import {updateUserSettings} from '../../support/updateUserSettings'
 
 const LIST_VIEW = 1
 const GANTT_VIEW = 2
@@ -48,6 +49,11 @@ function panelEpic(page: Page, title: string) {
 }
 
 test.describe('Epics', () => {
+	// Epics are opt in per user.
+	test.beforeEach(async ({apiContext, userToken}) => {
+		await updateUserSettings(apiContext, userToken, {frontend_settings: {epics_enabled: true}})
+	})
+
 	test('creates an epic in the panel and narrows the list to it', async ({authenticatedPage: page}) => {
 		await seedEpics()
 		await page.goto(`/projects/1/${LIST_VIEW}`)
@@ -205,5 +211,25 @@ test.describe('Epics', () => {
 		await expect(created).toBeVisible()
 		await expect(created).not.toContainText('~')
 		await expect(created.getByTestId('epic-chip')).toContainText('Launch plan')
+	})
+})
+
+test.describe('Epics turned off', () => {
+	test('hides epics until the user turns them on', async ({authenticatedPage: page}) => {
+		await seedEpics()
+		await page.goto(`/projects/1/${LIST_VIEW}`)
+		await expect(page.locator('.tasks .single-task').filter({hasText: 'Press release'})).toBeVisible()
+		await expect(page.getByTestId('epics-panel-toggle')).toHaveCount(0)
+		await expect(page.getByTestId('epic-group-toggle')).toHaveCount(0)
+		await expect(page.getByTestId('epic-chip')).toHaveCount(0)
+
+		await page.goto('/user/settings/general')
+		await page.getByLabel('Enable epics').check()
+		await page.getByTestId('saveGeneralSettings').click()
+		await expect(page.locator('.global-notification')).toContainText('Success')
+
+		await page.goto(`/projects/1/${LIST_VIEW}`)
+		await expect(page.getByTestId('epics-panel-toggle')).toBeVisible()
+		await expect(page.locator('.tasks .single-task').filter({hasText: 'Press release'}).getByTestId('epic-chip')).toContainText('Launch plan')
 	})
 })

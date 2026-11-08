@@ -10,6 +10,7 @@ import {
 import {ensureLabels, refreshLabels, getLabelByExactTitle, useCreateLabelMutation} from '@/client/queries/labels'
 import {ensureProjects, findProjectByExactTitle} from '@/client/queries/projects'
 import {ensureProjectEpics, findEpicByTitle} from '@/client/queries/epics'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 import {searchProjectUsers} from '@/client/queries/userSearch'
 import {useAuthStore} from '@/stores/auth'
 import {useConfigStore} from '@/stores/config'
@@ -43,6 +44,7 @@ export function useQuickAddTask() {
 	const addLabel = useAddTaskLabelMutation()
 	const createLabel = useCreateLabelMutation()
 	const auth = useAuthStore()
+	const epicsEnabled = useEpicsEnabled()
 	const config = useConfigStore()
 	const router = useRouter()
 
@@ -89,10 +91,10 @@ export function useQuickAddTask() {
 	}
 
 	// Resolves the parsed epic name in the task's project and removes it from the title.
-	// A name that matches no epic stays part of the title.
+	// A name that matches no epic, or any name while epics are off, stays part of the title.
 	async function takeEpicFromText(parsed: ParsedTaskText, mode: PrefixMode, projectId: number) {
 		const prefix = PREFIXES[mode]?.epic
-		if (!parsed.epic || !prefix || projectId <= 0) return undefined
+		if (!epicsEnabled.value || !parsed.epic || !prefix || projectId <= 0) return undefined
 		const epic = findEpicByTitle(await ensureProjectEpics(projectId), parsed.epic)
 		if (epic) parsed.text = cleanupItemText(parsed.text, [parsed.epic], prefix).trim()
 		return epic

@@ -64,11 +64,13 @@
 						{{ $t('task.quickAddMagic.project4', {prefix: prefixes.project}) }}
 					</p>
 
-					<h3>{{ $t('task.attributes.epic') }}</h3>
-					<p>
-						{{ $t('task.quickAddMagic.epic1', {prefix: prefixes.epic}) }}
-						{{ $t('task.quickAddMagic.epic2', {prefix: prefixes.epic}) }}
-					</p>
+					<template v-if="epicsEnabled">
+						<h3>{{ $t('task.attributes.epic') }}</h3>
+						<p>
+							{{ $t('task.quickAddMagic.epic1', {prefix: prefixes.epic}) }}
+							{{ $t('task.quickAddMagic.epic2', {prefix: prefixes.epic}) }}
+						</p>
+					</template>
 
 					<h3>{{ $t('task.quickAddMagic.dateAndTime') }}</h3>
 					<p>
@@ -122,6 +124,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import {PREFIXES} from '@/modules/quickAddMagic'
 import {useAuthStore} from '@/stores/auth'
 import {useQuickAddMode} from '@/composables/useQuickAddMode'
+import {useEpicsEnabled} from '@/composables/useEpicsEnabled'
 
 defineProps<{
 	highlightHintIcon?: boolean,
@@ -134,6 +137,7 @@ const emit = defineEmits<{
 
 const authStore = useAuthStore()
 const {isQuickAddMode} = useQuickAddMode()
+const epicsEnabled = useEpicsEnabled()
 
 const visible = ref(false)
 const mode = computed(() => authStore.settings.frontend_settings.quick_add_magic_mode)
